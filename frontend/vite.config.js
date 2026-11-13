@@ -75,8 +75,9 @@ export default defineConfig({
 });
 
 function webApp(){return {name:'iotcloud-webapp',generateBundle(_,bundle){
- const files=['./','index.html','manifest.webmanifest','icons/iotcloud.svg','icons/icon-192.png','icons/icon-512.png','icons/apple-touch-icon.png',...Object.keys(bundle).filter(name=>!name.endsWith('.map')&&name!=='standalone-daikin.html')];
+ const files=['./','index.html','frontend-build.json','manifest.webmanifest','icons/iotcloud.svg','icons/icon-192.png','icons/icon-512.png','icons/apple-touch-icon.png',...Object.keys(bundle).filter(name=>!name.endsWith('.map')&&name!=='standalone-daikin.html')];
  const version=createHash('sha256').update(JSON.stringify(files)+Object.values(bundle).map(item=>item.code||item.source||'').join('')).digest('hex').slice(0,16);
+ this.emitFile({type:'asset',fileName:'frontend-build.json',source:JSON.stringify({schema:1,mode:hubMode?'hub':'cloud'})+'\n'});
  this.emitFile({type:'asset',fileName:'sw.js',source:`
 const CACHE='iotcloud-${version}';
 const FILES=${JSON.stringify(files)};

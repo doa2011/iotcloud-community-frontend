@@ -180,3 +180,26 @@ test('a selected TC1 with fresh status refreshes its meter independently and doe
  assert.equal(f.calls.filter(call=>call.data.action==='status.get').length,2);
  now=16999;assert.equal(f.client.hasFreshMeter(f.one),false,'a backwards clock must not extend meter freshness');
 });
+
+test('S30 refresh keeps meter validity and receipt time independent from relay status',async()=>{
+ let now=1000;const f=fixture({now:()=>now}),s30=device('aabbccddee03','s30-v1b');f.client.retain([f.one,f.two,s30]);
+ const pending=f.client.refreshState(s30,{background:true});
+ f.reply(0,{device_id:s30.mac,name:'S30',socket_states:[true]});await tick();
+ assert.equal(f.calls[1].data.action,'capabilities.get');f.reply(1,capability(s30));await tick();
+ assert.equal(f.calls[2].data.action,'power.get');now=2000;
+ f.reply(2,{device_id:s30.mac,on:true,power_watts:0,energy_kwh:.25,metering:{valid:true,valid_fields:7,voltage:230.4,current:0,active_power:0,energy_kwh:.25}});await pending;
+ let state=f.status.at(-1)[1];
+ assert.equal(state.sensorAt,1000);assert.equal(state.hubPower.receivedAt,2000);assert.equal(state.hubPower.energy_kwh,.25);
+ assert.equal(hubPowerReading(state,2000),0);assert.equal(f.client.hasFreshMeter(s30),true);
+
+ now=7000;const failed=f.client.refreshMeter(s30,{background:true});await tick();
+ assert.equal(f.calls.at(-1).data.action,'power.get');f.calls.at(-1).reject(Error('offline'));assert.equal((await failed).code,'offline');
+ state=f.status.at(-1)[1];assert.equal(hubPowerReading(state,7000),0,'a failed request keeps the last sample inside its TTL');
+ now=17000;assert.equal(hubPowerReading(state,now),null,'the independent receipt expires at 15 seconds');
+
+ now=20000;const invalid=f.client.refreshMeter(s30,{background:true});await tick();
+ assert.equal(f.calls.at(-1).data.action,'power.get');
+ f.reply(f.calls.length-1,{device_id:s30.mac,power_watts:99,metering:{valid:false,valid_fields:3,active_power:99}});await invalid;
+ state=f.status.at(-1)[1];assert.equal(state.sensorAt,1000);assert.equal(hubPowerReading(state,now),null);
+ assert.equal(f.client.hasFreshMeter(s30),false,'a sample without the active-power validity bit is not fresh');
+});
