@@ -7,6 +7,7 @@ const failure=code=>Object.assign(Error(code),{code});
 export const hubDeviceIdentity=d=>[d.mac,d.model,d.wire_format,d.wire_version,d.firmware_version,d.variant||d.firmware_variant].join('/');
 const identity=hubDeviceIdentity;
 const stable=value=>JSON.stringify(value,(_,v)=>v&&typeof v==='object'&&!Array.isArray(v)?Object.fromEntries(Object.keys(v).sort().map(key=>[key,v[key]])):v);
+const hubMeteredModel=model=>model==='tc1'||model==='s30-v1b';
 export const hubDeviceReadable=device=>device.self===true||device.online===true&&device.paired===true&&device.route_confirmed!==false;
 
 // /devices is the gateway's discovery-bound inventory, not a browser LAN probe.
@@ -30,7 +31,7 @@ export function createHubDeviceClient({request,onStatus=()=>{},onCapabilities=()
  }
  const canAccept=job=>current(job)&&job.epoch===(epochs.get(job.key)||0)&&job.users.some(user=>!user.done);
  function emitStatus(job,snapshot){
-  onStatus(job.key,structuredClone(job.device.model==='tc1'?{...snapshot,hubPower:meters.get(job.key)?.sample||null}:snapshot));
+  onStatus(job.key,structuredClone(hubMeteredModel(job.device.model)?{...snapshot,hubPower:meters.get(job.key)?.sample||null}:snapshot));
  }
  function finishUser(user,error,value){
   if(user.done)return;
@@ -65,7 +66,7 @@ export function createHubDeviceClient({request,onStatus=()=>{},onCapabilities=()
       emitStatus(job,snapshot);
      }
     }
-    if(result.code==='ok'&&job.data.action==='power.get'&&job.device.model==='tc1'){
+    if(result.code==='ok'&&job.data.action==='power.get'&&hubMeteredModel(job.device.model)){
      if(result.data?.device_id&&normalizeMAC(result.data.device_id)!==job.device.mac)throw failure('identity_mismatch');
      if(canAccept(job)){
       meters.set(job.key,{identity:job.identity,sample:hubPowerSample(result.data,now())});
@@ -114,7 +115,7 @@ export function createHubDeviceClient({request,onStatus=()=>{},onCapabilities=()
   return !!cached&&cached.identity===identity(device)&&hubPowerReading({hubPower:sample},clock)!==null&&clock-sample.receivedAt+sample.age_ms<maxAge;
  }
  async function refreshMeter(device,options={}){
-  if(device.model!=='tc1'||hasFreshMeter(device))return null;
+  if(!hubMeteredModel(device.model)||hasFreshMeter(device))return null;
   const generation=readGeneration,key=deviceKey(device),capturedIdentity=identity(device),epoch=epochs.get(key)||0;
   const continuing=()=>!disposed&&!options.signal?.aborted&&generation===readGeneration&&capturedIdentity===identity(devices.get(key)||{})&&epoch===(epochs.get(key)||0);
   const caps=await dispatch(device,{action:'capabilities.get'},options);

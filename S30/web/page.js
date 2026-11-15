@@ -57,6 +57,11 @@ for(const id of ['ledEnabled','ledEnabledDevice'])$(id).onchange=e=>run(null,()=
 /* ---------- Home: power trend ---------- */
 const powerHistory=[];
 let meterStatusKey='s30.no_sample';
+function clearMeter(){
+ $('watts').firstChild.textContent='—';
+ for(const id of ['voltage','current','energy'])$(id).textContent='—';
+ meterStatusKey='s30.no_sample';$('meterStatus').textContent=t(meterStatusKey);$('meterLive').classList.remove('ok');
+}
 async function pollPower(){
  try{
   if(document.hidden||$('homePage').hidden)return;
@@ -78,7 +83,7 @@ async function pollPower(){
   $('peak').textContent=max.toFixed(1)+' W';$('sparkRange').textContent=min.toFixed(1)+'–'+max.toFixed(1)+' W';
   const points=values.map((y,i)=>(i/Math.max(values.length-1,1)*300).toFixed(1)+','+(62-(y/top)*58).toFixed(1)).join(' ');
   $('spark').innerHTML='<polyline points="0,64 '+points+' 300,64" class="area"/><polyline points="'+points+'" class="line"/>';
- }catch{}
+ }catch{clearMeter();}
  finally{setTimeout(pollPower,2000);}
 }
 
