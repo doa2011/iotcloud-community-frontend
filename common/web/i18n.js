@@ -677,6 +677,7 @@ const D={
 'daikin.system.ready':['Ready · steady on','系统就绪 · 常亮'],
 'daikin.wifi_ok':['Wi-Fi connected','Wi-Fi 已连接'],
 'daikin.wifi_lost':['Wi-Fi disconnected','Wi-Fi 未连接'],
+'screen.camera_layout_help':['Adjust the camera position, size and picture fit in the layout editor.','在布局编辑器中调整摄像头位置、大小与画面适配。'],
 'daikin.warmup':['Warming up ({n}s)','预热中（剩余 {n} 秒）'],
 'm.tvoc':['TVOC','TVOC'],
 'm.tvoc_reference':['Reference ≤300 ppb','建议参考 ≤300 ppb'],

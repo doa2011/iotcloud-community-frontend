@@ -201,3 +201,18 @@ test('DAIKIN climate settings save, preserve drafts, restore defaults and reject
   w.UI.device.onStatus(state);assert.equal(d.querySelector('#climateSettings').hidden,true);
  }finally{dom.window.close();}
 });
+
+test('G3 measurement warmup counts down monotonically, expires offline and never implies a valid sample',()=>{
+ const {dom,w,state}=editorFixture();
+ try{
+  let now=100;Object.defineProperty(w.performance,'now',{value:()=>now});
+  const card=w.document.querySelector('[data-sensor="tvoc"]'),badge=()=>card.querySelector('.badge').textContent;
+  const show=(remaining,valid=false)=>w.UI.device.onStatus({...state,hardware_model:'BRY88BBA15G',tvoc_warmup_seconds_remaining:remaining,sensors:{tvoc:{unit:'ppb',valid,value:0,age_ms:0}}});
+  w.I18N.set('en');show(120);assert.match(badge(),/120s/);
+  now+=1501;w.I18N.set('en');assert.match(badge(),/119s/);
+  now+=18499;w.I18N.set('en');assert.doesNotMatch(badge(),/Warming/);
+  for(const remaining of [0,null,undefined,-1]){show(remaining);assert.doesNotMatch(badge(),/Warming/);assert.equal(card.querySelector('.num').textContent,'—');}
+  show(120,true);assert.doesNotMatch(badge(),/Warming/);assert.equal(card.querySelector('.num').textContent,'0');
+  w.I18N.set('zh-CN');show(300);assert.match(badge(),/剩余 300 秒/);
+ }finally{dom.window.close();}
+});

@@ -49,7 +49,8 @@ function render(s){
   const field=s.sensors?.[key],el=tiles[key];el.card.hidden=optional(key)&&!field;
   const valid=fresh(field,elapsed,key);
   grades[key]=SensorUI.reading(el,key,field?.value,valid);if(valid)count++;
-  if(key==='co2'&&!valid&&s.co2_warmup_seconds_remaining>elapsed/1000)el.badge.textContent=t('daikin.warmup',{n:Math.ceil(s.co2_warmup_seconds_remaining-elapsed/1000)});
+  const remaining=key==='tvoc'?s.tvoc_warmup_seconds_remaining:key==='co2'?s.co2_warmup_seconds_remaining:null;
+  if(!valid&&elapsed<20000&&Number.isInteger(remaining)&&remaining>elapsed/1000)el.badge.textContent=t('daikin.warmup',{n:Math.ceil(remaining-elapsed/1000)});
  }
  const ranked=['pm25','pm10','formaldehyde','co2','tvoc'].filter(k=>grades[k]),rank={ok:0,warn:1,bad:2};
  const worst=ranked.reduce((a,k)=>!a||rank[grades[k].cls]>rank[grades[a].cls]?k:a,null),level=worst?grades[worst].cls:'';
