@@ -216,3 +216,21 @@ test('G3 measurement warmup counts down monotonically, expires offline and never
   w.I18N.set('zh-CN');show(300);assert.match(badge(),/剩余 300 秒/);
  }finally{dom.window.close();}
 });
+
+test('G3 TVOC warmup configuration confirms live and saved values, preserves drafts and supports factory auto',async()=>{
+ const {dom,w,state,flush}=editorFixture();try{
+ const find=id=>w.document.getElementById(id),show=value=>w.UI.device.onStatus({...state,screen:{settings:{tvoc_warmup_minutes:value}}});
+ show(-1);assert.equal(find('tvocSettings').hidden,false);assert.equal(find('tvocWarmupMode').value,'auto');
+ find('tvocWarmupMode').value='custom';find('tvocWarmupMode').dispatchEvent(new w.Event('change'));
+ find('tvocWarmupMinutes').value='15';find('tvocWarmupMinutes').dispatchEvent(new w.Event('input'));show(60);assert.equal(find('tvocWarmupMinutes').value,'15');
+ let writes=[],value;
+ w.command=async(action,params)=>{if(action==='screen.settings.set'){writes.push(params);value=params.tvoc_warmup_minutes;return {token:'warmup-test'};}return {request:{token:'warmup-test',state:'confirmed'},settings:{tvoc_warmup_minutes:value},saved_settings:{tvoc_warmup_minutes:value}};};
+ const submit=async()=>{find('tvocWarmupForm').dispatchEvent(new w.Event('submit',{bubbles:true,cancelable:true}));await flush();};
+ for(const input of ['0','61','1.5']){find('tvocWarmupMinutes').value=input;await submit();assert.equal(writes.length,0);}
+ find('tvocWarmupMinutes').value='15';await submit();assert.equal(writes[0].tvoc_warmup_minutes,15);assert.match(find('tvocWarmupResult').textContent,/Saved and applied/);
+ find('tvocWarmupMode').value='auto';find('tvocWarmupMode').dispatchEvent(new w.Event('change'));await submit();assert.equal(writes[1].tvoc_warmup_minutes,-1);
+ w.command=async(action)=>action==='screen.settings.set'?{token:'bad'}:{request:{token:'bad',state:'rejected'}};
+ await submit();assert.match(find('tvocWarmupResult').textContent,/not confirmed/);
+ w.UI.device.onStatus(state);assert.equal(find('tvocSettings').hidden,true);
+ }finally{dom.window.close();}
+});

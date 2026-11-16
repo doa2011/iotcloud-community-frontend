@@ -62,7 +62,7 @@ function render(s){
  $('indicator').checked=!!s.indicator_enabled;
  ruleEditor.status(s);
  co2Editor.status(s,elapsed);
- climateEditor.status(s);pmPowerEditor.status(s);
+ climateEditor.status(s);pmPowerEditor.status(s);tvocEditor.status(s);
  renderIndicators(s,elapsed);
 }
 function renderPeers(){
@@ -232,6 +232,37 @@ function pmPowerSettings(){
   if(supported&&!dirty&&!busy){inputs[0].checked=s.pm_power.enabled;start.value=time(s.pm_power.start_minute);end.value=time(s.pm_power.end_minute);zone.value=s.pm_power.timezone_minutes;}lock();}};
 }
 const pmPowerEditor=pmPowerSettings();
+function tvocSettings(){
+ const box=$('tvocSettings');let dirty=false,busy=false,supported=false;
+ const mode=h('select',{id:'tvocWarmupMode'},h('option',{value:'auto',i18n:'daikin.tvoc_auto'}),h('option',{value:'custom',i18n:'daikin.tvoc_custom'}));
+ const minutes=h('input',{id:'tvocWarmupMinutes',type:'number',min:1,max:60,step:1,required:true,value:60});
+ const save=h('button',{type:'submit',class:'btn',i18n:'common.save'}),message=h('p',{id:'tvocWarmupResult',class:'help','aria-live':'polite'});
+ const row=fieldRow('daikin.tvoc_minutes',minutes),form=h('form',{id:'tvocWarmupForm',class:'stack'},fieldRow('daikin.tvoc_mode',mode),row,save);
+ box.append(h('h2',{i18n:'daikin.tvoc_title'}),h('p',{class:'help',i18n:'daikin.tvoc_hint'}),form,message);
+ function lock(){row.hidden=mode.value==='auto';minutes.disabled=busy||!supported||row.hidden;mode.disabled=save.disabled=busy||!supported;}
+ mode.onchange=minutes.oninput=()=>{dirty=true;lock();};
+ form.onsubmit=async e=>{
+  e.preventDefault();if(busy||!supported||!form.reportValidity())return;
+  const value=mode.value==='auto'?-1:Number(minutes.value);busy=true;message.textContent='';lock();
+  try{
+   const receipt=await command('screen.settings.set',{tvoc_warmup_minutes:value});
+   if(!receipt.token)throw Error(t('daikin.tvoc_unconfirmed'));
+   let confirmed=false;
+   for(let i=0;i<30;i++){
+    const result=await command('screen.settings.get',{}),request=result.request||{};
+    if(request.token===receipt.token&&request.state==='rejected')throw Error(t('daikin.tvoc_unconfirmed'));
+    if(request.token===receipt.token&&request.state==='confirmed'&&result.settings?.tvoc_warmup_minutes===value&&result.saved_settings?.tvoc_warmup_minutes===value){confirmed=true;break;}
+    await new Promise(resolve=>setTimeout(resolve,300));
+   }
+   if(!confirmed)throw Error(t('daikin.tvoc_unconfirmed'));
+   dirty=false;message.textContent=t('daikin.tvoc_saved');
+  }catch(e){message.textContent=e.message;}finally{busy=false;lock();}
+ };
+ return {status(s){const value=s.screen?.settings?.tvoc_warmup_minutes;supported=Number.isInteger(value)&&value>=-1&&value!==0&&value<=60;box.hidden=!supported;
+  if(supported&&!dirty&&!busy){mode.value=value===-1?'auto':'custom';if(value>=0)minutes.value=value;}lock();}};
+}
+const tvocEditor=tvocSettings();
+
 $('indicator').onchange=()=>run($('indicator'),()=>UI.control('indicator.set',{enabled:$('indicator').checked},{indicator_enabled:$('indicator').checked}));
 UI.start({model:'BRY88AX151K',kindKey:'daikin.kind',icon:'air',factoryReset:true,mqttHostMax:127,diagnosticPages:['device'],
  otaName:'daikin_BRY88AX151K.ota.bin.signed',haHintKey:'daikin.ha',otaHintKey:'daikin.ota',buttonHintKey:'daikin.button',
