@@ -177,6 +177,7 @@ const server=http.createServer(async(req,res)=>{
   const oldPages=scene[8];await page.locator('#screenCameraAddPage').click();await page.waitForSelector('[data-component-field="image_fit"]');await page.locator('[data-component-field="image_fit"]').selectOption('1');
   await page.locator('#screenSave').click();await page.waitForFunction(()=>document.querySelector('#screenDraft').textContent.match(/^Saved|^已保存/));assert.equal(scene[8],oldPages+1);assert.equal(scene.length,9520);
   const cameraScene=path.join(previewOut,`camera-${width}-${lang}.bin`);fs.writeFileSync(cameraScene,scene);cp.execFileSync(process.env.SCREEN_SCENE_CODEC,[cameraScene]);await page.locator('#screenGrid').screenshot({path:path.join(previewOut,`camera-${width}-${lang}.png`)});
+  assert.equal(await page.locator('.screen-camera-preview img').evaluate(el=>el.style.objectPosition),'center center');
   const cameraCount=scene[9],cameraPages=scene[8],cameraSource=JSON.stringify(streamConfig);
   await page.locator('#screenTab_services').click();await page.locator('#screenCamera').screenshot({path:path.join(previewOut,`camera-settings-${width}-${lang}.png`)});
   await page.locator('#screenCameraEditLayout').click();await page.waitForSelector('[data-component-field="image_fit"]');
@@ -197,6 +198,7 @@ const server=http.createServer(async(req,res)=>{
   fs.writeFileSync(path.join(previewOut,`camera-geometry-${width}-${lang}.json`),JSON.stringify(cameraGeometry,null,2));
   await page.locator('#screenGrid').screenshot({path:path.join(previewOut,`camera-layout-cover-${width}-${lang}.png`)});
   await page.locator('[data-component-field="image_fit"]').selectOption('0');
+  assert.equal(await page.locator('.screen-camera-preview img').evaluate(el=>el.style.objectPosition),'center top');
   await page.locator('#screenSave').click();await page.waitForFunction(()=>document.querySelector('#screenDraft').textContent.match(/^Saved|^已保存/));
   await page.locator('#screenGrid').screenshot({path:path.join(previewOut,`camera-layout-contain-${width}-${lang}.png`)});
   await page.locator('[data-component-field="x"]').fill('0');await page.locator('[data-component-field="x"]').dispatchEvent('change');
