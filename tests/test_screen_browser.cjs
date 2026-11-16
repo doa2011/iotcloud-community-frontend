@@ -199,6 +199,20 @@ const server=http.createServer(async(req,res)=>{
   await page.locator('[data-component-field="image_fit"]').selectOption('0');
   await page.locator('#screenSave').click();await page.waitForFunction(()=>document.querySelector('#screenDraft').textContent.match(/^Saved|^已保存/));
   await page.locator('#screenGrid').screenshot({path:path.join(previewOut,`camera-layout-contain-${width}-${lang}.png`)});
+  await page.locator('[data-component-field="x"]').fill('0');await page.locator('[data-component-field="x"]').dispatchEvent('change');
+  await page.locator('[data-component-field="w"]').fill('4');await page.locator('[data-component-field="w"]').dispatchEvent('change');
+  await page.locator('[data-component-field="y"]').fill('1');await page.locator('[data-component-field="y"]').dispatchEvent('change');
+  for(const fit of ['0','1']){
+   await page.locator('[data-component-field="image_fit"]').selectOption(fit);
+   const row=await page.evaluate(()=>{const g=document.querySelector('#screenGrid').getBoundingClientRect(),c=document.querySelector('.screen-tile.selected').getBoundingClientRect(),i=document.querySelector('.screen-camera-preview').getBoundingClientRect();return {x:(c.x-g.x)*480/g.width,y:(c.y-g.y)*854/g.height,w:c.width*480/g.width,h:c.height*854/g.height,cw:i.width*480/g.width,ch:i.height*854/g.height};});
+   for(const [k,v]of Object.entries({x:0,y:196,w:480,h:382,cw:480,ch:358}))assert(Math.abs(row[k]-v)<.2,`${k}: ${row[k]} != ${v}`);
+   // Reproduce the previous row margin geometry in the same real browser.
+   await page.evaluate(()=>{const c=document.querySelector('.screen-tile.selected'),i=document.querySelector('.screen-camera-preview');c.dataset.savedStyle=c.style.cssText;i.dataset.savedStyle=i.style.cssText;c.style.left=(16/480*100)+'%';c.style.width=(448/480*100)+'%';i.style.left=i.style.right=(12/448*100)+'%';});
+   await page.locator('#screenGrid').screenshot({path:path.join(previewOut,`camera-row-before-${fit}-${width}-${lang}.png`)});
+   await page.evaluate(()=>{for(const el of document.querySelectorAll('[data-saved-style]')){el.style.cssText=el.dataset.savedStyle;delete el.dataset.savedStyle;}});
+   await page.locator('#screenGrid').screenshot({path:path.join(previewOut,`camera-row-${fit}-${width}-${lang}.png`)});
+  }
+  await page.locator('#screenSave').click();await page.waitForFunction(()=>document.querySelector('#screenDraft').textContent.match(/^Saved|^已保存/));
   const cameraLayout=path.join(previewOut,`camera-layout-${width}-${lang}.bin`);fs.writeFileSync(cameraLayout,scene);cp.execFileSync(process.env.SCREEN_SCENE_CODEC,[cameraLayout]);
   await page.locator('#screenTab_advanced').click();await page.locator('#screenLinkLoad').click();await page.waitForFunction(()=>!document.querySelector('#screenLinkLoad').disabled);await page.locator('#screenLinkMode').selectOption('auto');await page.locator('#screenLinkMaximum').selectOption('460800');await page.locator('#screenLinkApply').check();await page.locator('#screenLinkSave').click();await page.waitForFunction(()=>!document.querySelector('#screenLinkSave').disabled);assert.equal(linkConfig.mode,'auto');assert.equal(linkConfig.max_rate,460800);assert.equal(linkConfig.apply_now,true);
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);assert.deepEqual(errors,[]);

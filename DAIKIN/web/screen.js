@@ -268,7 +268,7 @@ function preview(it){
  if(it.type===1)return [numberPreview(it,it.hide_title?'':screenText(it.title),unit.textContent,value.textContent)];
  if(it.type===2)return [...(it.hide_title?[]:[label]),h('span',{class:'screen-widget-body'},it.text||'--')];
  if(it.type===6)return [weatherPreview(it)];
- if(it.type===8){const edge=it.w===4&&it.h===6,pad=edge?0:12;const content=h('div',{class:'screen-camera-preview',style:'position:absolute;inset:'+((pad+(it.hide_title?0:48))/(it.h*screenGeometry.row-screenGeometry.gap)*100)+'% '+(pad/(edge?480:it.w*screenGeometry.column-screenGeometry.gap)*100)+'% '+(pad/(it.h*screenGeometry.row-screenGeometry.gap)*100)+'%'}),image=h('img',{alt:t('screen.type.image'),style:'width:100%;height:100%;object-fit:'+(it.image_fit?'cover':'contain')});image.src='data:image/svg+xml,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="320" height="240"><path fill="#365f69" d="M0 0h320v240H0z"/><path fill="#89ad84" d="M0 0h160v120H0zM160 120h160v120H160z"/></svg>');content.append(image);return [...(it.hide_title?[]:[label]),content];}
+ if(it.type===8){const edge=it.x===0&&it.w===4,pad=edge&&it.h===6?0:12,hpad=edge?0:12;const content=h('div',{class:'screen-camera-preview',style:'position:absolute;inset:'+((pad+(it.hide_title?0:48))/(it.h*screenGeometry.row-screenGeometry.gap)*100)+'% '+(hpad/(edge?480:it.w*screenGeometry.column-screenGeometry.gap)*100)+'% '+(pad/(it.h*screenGeometry.row-screenGeometry.gap)*100)+'%'}),image=h('img',{alt:t('screen.type.image'),style:'width:100%;height:100%;object-fit:'+(it.image_fit?'cover':'contain')});image.src='data:image/svg+xml,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="320" height="240"><path fill="#365f69" d="M0 0h320v240H0z"/><path fill="#89ad84" d="M0 0h160v120H0zM160 120h160v120H160z"/></svg>');content.append(image);return [...(it.hide_title?[]:[label]),content];}
  return [...(it.hide_title?[]:[label]),h('span',{class:'screen-widget-body'},appearance.language==='en'?'Water the plants':'给植物浇水')];
 }
 function setGeometry(it,values){const id=it.id;return change(()=>{Object.assign(it,values);selected=scene.items.find(x=>x.id===id);});}
@@ -377,7 +377,7 @@ const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 function componentStyle(it){
  const colors=A.widgetColors(appearance,it),p=A.resolve(appearance),image=appearance.wallpaper!=='none'&&(appearance.wallpaper!=='custom'||customPreview?.crc===appearance.custom_crc),hex=colors.background;
  const alpha=A.surface(appearance,it,image)/100,rgb=[1,3,5].map(i=>parseInt(hex.slice(i,i+2),16)).join(',');
- return (it.type===8&&it.w===4&&it.h===6?screenBox(0,screenGeometry.top,480,it.h*screenGeometry.row-screenGeometry.gap):componentBox(it))+';'+Object.entries(colors).map(([k,v])=>`--component-${k}:${v}`).join(';')+`;background:rgba(${rgb},${alpha});border:${it.type===8?0:1}px solid ${image&&it.type!==8?p.line+'66':'transparent'}`;
+ return (it.type===8&&it.x===0&&it.w===4?screenBox(0,screenGeometry.top+it.y*screenGeometry.row,480,it.h*screenGeometry.row-screenGeometry.gap):componentBox(it))+';'+Object.entries(colors).map(([k,v])=>`--component-${k}:${v}`).join(';')+`;background:rgba(${rgb},${alpha});border:${it.type===8?0:1}px solid ${image&&it.type!==8?p.line+'66':'transparent'}`;
 }
 function applyAppearancePreview(){
  const p=A.resolve(appearance);for(const [k,v]of Object.entries(p))grid.style.setProperty('--appearance-'+k,v);
