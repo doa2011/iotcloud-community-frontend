@@ -599,6 +599,13 @@ const D={
 "error.unauthorized":["Incorrect web password", "网页管理密码错误"],
 "common.unsupported":["Unsupported operation", "不支持的操作"],
 
+"daikin.pm_power_title":["Night particle sensor power saving", "夜间颗粒物传感器节能"],
+"daikin.pm_power_enabled":["Enable night sampling", "启用夜间间歇采样"],
+"daikin.pm_power_hint":["Samples for about one minute every 59 minutes at night. Particle readings remain valid for one hour; ventilation responds to these less frequent readings. Equal start and end times disable the window.", "夜间每约59分钟采样约1分钟，颗粒物读数保留一小时有效期；净化联动将按较低频率更新的读数响应。起止时间相同时不生效。"],
+"daikin.pm_power_start":["Start time", "开始时间"],
+"daikin.pm_power_end":["End time", "结束时间"],
+"daikin.pm_power_zone":["UTC offset (minutes)", "UTC 时差（分钟）"],
+"daikin.pm_power_unconfirmed":["Settings could not be confirmed. Refresh and check again.", "未能确认设置，请刷新后检查。"],
 "daikin.climate_title":["Temperature and humidity compensation", "温湿度补偿与校准"],
 "daikin.climate_temperature":["Temperature subtraction (°C, −20 to 20)", "温度减去值（°C，−20～20）"],
 "daikin.climate_humidity":["Humidity adjustment (%RH, −30 to 30)", "湿度微调（%RH，−30～30）"],

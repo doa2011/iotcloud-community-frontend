@@ -7,11 +7,14 @@ const tiles=Object.fromEntries(metrics.map(([key,unit])=>{const el=SensorUI.tile
 const tvocHeading=h('div',{class:'label'});tiles.tvoc.label.before(tvocHeading);
 tvocHeading.append(tiles.tvoc.label,h('small',{class:'metric-reference',i18n:'m.tvoc_reference'}));
 let snapshot=null,receivedAt=0,status={peers:[]};
-function fresh(field,elapsed){return field?.valid===true&&typeof field.value==='number'&&Number.isFinite(field.value)&&typeof field.age_ms==='number'&&field.age_ms+elapsed<20000;}
+function fresh(field,elapsed,key){
+ const limit=field?.max_age_ms===undefined?20000:['pm25','pm10'].includes(key)&&Number.isInteger(field.max_age_ms)&&field.max_age_ms>0&&field.max_age_ms<=3600000?field.max_age_ms:0;
+ return field?.valid===true&&Number.isFinite(field.value)&&Number.isInteger(field.age_ms)&&field.age_ms>=0&&elapsed>=0&&elapsed<20000&&field.age_ms+elapsed<limit;
+}
 const lightMetrics=[['co2','ppm',10000],['tvoc','ppb',65535],['pm','µg/m³',10000],['formaldehyde','mg/m³',5]];
 const defaultRules=()=>({pm_source:'pm25',...Object.fromEntries([['co2',1000],['tvoc',300],['pm',50],['formaldehyde',.1]].map(([key,threshold])=>[key,[{threshold,op:'gt',mode:'on'}]]))});
 function measurementMode(s,key,elapsed){
- const field=s.sensors?.[key];if(!s.indicator_enabled||!fresh(field,elapsed))return 'off';
+ const field=s.sensors?.[key];if(!s.indicator_enabled||!fresh(field,elapsed,key))return 'off';
  const rules=(s.indicator_rules||defaultRules())[['pm25','pm10'].includes(key)?'pm':key]||[];
  const match=rules.filter(r=>({gt:field.value>r.threshold,gte:field.value>=r.threshold,lt:field.value<r.threshold,lte:field.value<=r.threshold})[r.op]).sort((a,b)=>b.threshold-a.threshold)[0];
  return match?.mode||'off';
@@ -22,7 +25,7 @@ function renderIndicators(s,elapsed){
  const pm=s.indicator_rules?.pm_source||'pm25';
  const rank={off:0,on:1,slow:2,fast:3};
  [['pm',[pm],t('m.'+pm)],['co2',['co2'],'CO₂'],[voc,s.indicator_rules_custom?['tvoc','formaldehyde']:[voc],s.sensors?.formaldehyde?'TVOC / '+t('m.formaldehyde'):'TVOC']].forEach(([key,sources,label],index)=>{
-  const valid=sources.some(k=>fresh(s.sensors?.[k],elapsed));
+  const valid=sources.some(k=>fresh(s.sensors?.[k],elapsed,k));
   const mode=sources.map(k=>measurementMode(s,k,elapsed)).reduce((a,b)=>rank[b]>rank[a]?b:a,'off'),active=mode!=='off';
   let view=indicatorViews[index];
   if(!view){
@@ -44,7 +47,7 @@ function render(s){
  const elapsed=Math.max(0,performance.now()-receivedAt),grades={};let count=0;
  for(const [key] of metrics){
   const field=s.sensors?.[key],el=tiles[key];el.card.hidden=optional(key)&&!field;
-  const valid=fresh(field,elapsed);
+  const valid=fresh(field,elapsed,key);
   grades[key]=SensorUI.reading(el,key,field?.value,valid);if(valid)count++;
   if(key==='co2'&&!valid&&s.co2_warmup_seconds_remaining>elapsed/1000)el.badge.textContent=t('daikin.warmup',{n:Math.ceil(s.co2_warmup_seconds_remaining-elapsed/1000)});
  }
@@ -58,7 +61,7 @@ function render(s){
  $('indicator').checked=!!s.indicator_enabled;
  ruleEditor.status(s);
  co2Editor.status(s,elapsed);
- climateEditor.status(s);
+ climateEditor.status(s);pmPowerEditor.status(s);
  renderIndicators(s,elapsed);
 }
 function renderPeers(){
@@ -202,6 +205,32 @@ function climateSettings(){
   if(supported&&!dirty&&!busy){temp.value=s.climate_compensation.temperature_offset;humidity.value=s.climate_compensation.humidity_offset;}lock();}};
 }
 const climateEditor=climateSettings();
+function pmPowerSettings(){
+ const box=$('pmPowerSettings');box.hidden=true;let dirty=false,busy=false,supported=false;
+ const enabled=UI.switchRow('pmPowerEnabled','daikin.pm_power_enabled','daikin.pm_power_hint');
+ const start=h('input',{type:'time',required:true,value:'23:00'}),end=h('input',{type:'time',required:true,value:'07:00'});
+ const zone=h('input',{type:'number',min:-720,max:840,step:1,required:true,value:480});
+ const save=h('button',{type:'submit',class:'btn',i18n:'common.save'}),message=h('p',{class:'help','aria-live':'polite'});
+ const form=h('form',{class:'stack'},enabled,fieldRow('daikin.pm_power_start',start),fieldRow('daikin.pm_power_end',end),fieldRow('daikin.pm_power_zone',zone),save);
+ box.append(h('h2',{i18n:'daikin.pm_power_title'}),form,message);
+ const inputs=[enabled.querySelector('input'),start,end,zone];
+ for(const input of inputs)input.oninput=()=>{dirty=true;};
+ const minutes=input=>{const [h,m]=input.value.split(':').map(Number);return h*60+m;};
+ const time=value=>String(Math.floor(value/60)).padStart(2,'0')+':'+String(value%60).padStart(2,'0');
+ function lock(){for(const input of [...inputs,save])input.disabled=busy||!supported;}
+ form.onsubmit=async e=>{
+  e.preventDefault();if(busy||!supported||!form.reportValidity())return;
+  const values={enabled:inputs[0].checked,start_minute:minutes(start),end_minute:minutes(end),timezone_minutes:Number(zone.value)};
+  busy=true;lock();message.textContent='';
+  try{await command('config.set',{section:'pm_power',values});const current=await command('config.get',{}),actual=current.pm_power;
+   if(!actual||Object.keys(values).some(k=>actual[k]!==values[k]))throw Error(t('daikin.pm_power_unconfirmed'));
+   dirty=false;message.textContent=t('common.saved');
+  }catch(error){message.textContent=error.message;}finally{busy=false;lock();}
+ };
+ return {status(s){supported=!!s.pm_power;box.hidden=!supported;
+  if(supported&&!dirty&&!busy){inputs[0].checked=s.pm_power.enabled;start.value=time(s.pm_power.start_minute);end.value=time(s.pm_power.end_minute);zone.value=s.pm_power.timezone_minutes;}lock();}};
+}
+const pmPowerEditor=pmPowerSettings();
 $('indicator').onchange=()=>run($('indicator'),()=>UI.control('indicator.set',{enabled:$('indicator').checked},{indicator_enabled:$('indicator').checked}));
 UI.start({model:'BRY88AX151K',kindKey:'daikin.kind',icon:'air',factoryReset:true,mqttHostMax:127,diagnosticPages:['device'],
  otaName:'daikin_BRY88AX151K.ota.bin.signed',haHintKey:'daikin.ha',otaHintKey:'daikin.ota',buttonHintKey:'daikin.button',

@@ -11,7 +11,7 @@ export function createMqttStatusCache(now=Date.now){
   if(Array.isArray(value))return value.map(item=>age(item,elapsed));
   if(!object(value))return value;
   return Object.fromEntries(Object.entries(value).map(([name,item])=>[name,
-   (name==='age_ms'||name.endsWith('_age_ms'))&&typeof item==='number'&&Number.isFinite(item)&&item>=0?item+elapsed:age(item,elapsed)]));
+   name!=='max_age_ms'&&(name==='age_ms'||name.endsWith('_age_ms'))&&typeof item==='number'&&Number.isFinite(item)&&item>=0?item+elapsed:age(item,elapsed)]));
  }
  function observe(d,topic,message,packet={}){
   if(d.version!=='v2'||d.model!=='daikin')return;
