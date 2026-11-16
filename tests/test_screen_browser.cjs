@@ -208,10 +208,6 @@ const server=http.createServer(async(req,res)=>{
    await page.locator('[data-component-field="image_fit"]').selectOption(fit);
    const row=await page.evaluate(()=>{const g=document.querySelector('#screenGrid').getBoundingClientRect(),c=document.querySelector('.screen-tile.selected').getBoundingClientRect(),i=document.querySelector('.screen-camera-preview').getBoundingClientRect();return {x:(c.x-g.x)*480/g.width,y:(c.y-g.y)*854/g.height,w:c.width*480/g.width,h:c.height*854/g.height,cw:i.width*480/g.width,ch:i.height*854/g.height};});
    for(const [k,v]of Object.entries({x:0,y:196,w:480,h:382,cw:480,ch:358}))assert(Math.abs(row[k]-v)<.2,`${k}: ${row[k]} != ${v}`);
-   // Reproduce the previous row margin geometry in the same real browser.
-   await page.evaluate(()=>{const c=document.querySelector('.screen-tile.selected'),i=document.querySelector('.screen-camera-preview');c.dataset.savedStyle=c.style.cssText;i.dataset.savedStyle=i.style.cssText;c.style.left=(16/480*100)+'%';c.style.width=(448/480*100)+'%';i.style.left=i.style.right=(12/448*100)+'%';});
-   await page.locator('#screenGrid').screenshot({path:path.join(previewOut,`camera-row-before-${fit}-${width}-${lang}.png`),style:".toasts{display:none!important}"});
-   await page.evaluate(()=>{for(const el of document.querySelectorAll('[data-saved-style]')){el.style.cssText=el.dataset.savedStyle;delete el.dataset.savedStyle;}});
    await page.locator('#screenGrid').screenshot({path:path.join(previewOut,`camera-row-${fit}-${width}-${lang}.png`),style:".toasts{display:none!important}"});
   }
   await page.locator('#screenSave').click();await page.waitForFunction(()=>document.querySelector('#screenDraft').textContent.match(/^Saved|^已保存/));
