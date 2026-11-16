@@ -28,5 +28,8 @@ test('night PM retains real sample age while communication and declared expiry r
  publish(1);assert.equal(candidates(feeds,20999)[0].age_ms,1819999);assert.deepEqual(candidates(feeds,21000),[]);
  publish(2,3599999);assert.equal(candidates(feeds).length,1);assert.deepEqual(candidates(feeds,1001),[]);
  for(const [index,limit] of [0,-1,3600001,1.5,'3600000'].entries()){publish(index+3,1800000,limit);assert.deepEqual(candidates(feeds),[]);}
- publish(9,1800000,3600000);apply(feeds,'state',{...state,sequence:9,sensors:{}},{now:2000});assert.equal(feeds['alice:'+id].receivedAt,1000);
+ apply(feeds,'metadata',{...meta,descriptor_revision:2,fields:{pm25:{name:'PM2.5',type:'number',unit:'ppm'}}});
+ apply(feeds,'state',{...state,descriptor_revision:2,sequence:9,sensors:{pm25:{value:12,valid:true,age_ms:1800000,max_age_ms:3600000}}});assert.deepEqual(candidates(feeds),[],'extended PM age requires particulate units');
+ apply(feeds,'metadata',{...meta,descriptor_revision:3});
+ apply(feeds,'state',{...state,descriptor_revision:3,sequence:10,sensors:{pm25:{value:12,valid:true,age_ms:1800000,max_age_ms:3600000}}});apply(feeds,'state',{...state,descriptor_revision:3,sequence:10,sensors:{}},{now:2000});assert.equal(feeds['alice:'+id].receivedAt,1000);
 });
