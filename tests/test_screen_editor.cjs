@@ -460,3 +460,27 @@ test('screen installation waits for a fresh matching MCU image before reporting 
   assert.equal(polls,4);assert.match(w.document.querySelector('#screenOtaState').textContent,/installed and running/);
  }finally{dom.window.close();}
 });
+test('camera edit opens the existing widget and saves geometry and fit on the same page',async()=>{
+ const {dom,w,current,flush,click,writes}=fixture({capabilities:8388608|2097152|8192});try{
+  await w.ScreenUI.load();click('#screenCameraAddPage');click('#screenSave');await flush();
+  const before=w.ScreenLayout.decode(current()),camera=before.items.find(it=>it.type===8),d=w.document;
+  d.querySelector('#screenPage').value='0';d.querySelector('#screenPage').dispatchEvent(new w.Event('change'));
+  click('#screenCameraEditLayout');await flush();
+  assert.equal(d.querySelector('#screenPage').value,String(camera.page));
+  assert.equal(d.querySelector('#screenTab_layout').getAttribute('aria-selected'),'true');
+  assert.equal(d.querySelector('.screen-tile.selected').dataset.component,String(camera.id));
+  const field=(k,v)=>{const el=d.querySelector(`[data-component-field="${k}"]`);el.value=String(v);el.dispatchEvent(new w.Event('change'));};
+  field('w',2);field('h',2);
+  d.querySelector(`[data-component="${camera.id}"]`).dispatchEvent(new w.KeyboardEvent('keydown',{key:'ArrowRight',bubbles:true}));
+  d.querySelector(`[data-component="${camera.id}"]`).dispatchEvent(new w.KeyboardEvent('keydown',{key:'ArrowDown',shiftKey:true,bubbles:true}));
+  field('image_fit',1);assert.equal(d.querySelector('.screen-camera-preview img').style.objectFit,'cover');
+  click('#screenSave');await flush();await w.ScreenUI.load();click('#screenCameraEditLayout');await flush();
+  const saved=w.ScreenLayout.decode(current()),item=saved.items.find(it=>it.id===camera.id);
+  assert.equal(saved.pages.length,before.pages.length);assert.equal(saved.items.length,before.items.length);
+  assert.deepEqual([item.x,item.y,item.w,item.h,item.image_fit],[1,0,2,3,1]);
+  field('image_fit',0);assert.equal(d.querySelector('.screen-camera-preview img').style.objectFit,'contain');click('#screenSave');await flush();
+  assert.equal(w.ScreenLayout.decode(current()).items.find(it=>it.id===camera.id).image_fit,0);
+  assert.equal(writes.filter(it=>it.action.startsWith('screen.stream.')).length,0);
+  if(codec){const tmp=fs.mkdtempSync(path.join(os.tmpdir(),'screen-camera-layout-'));try{const p=path.join(tmp,'scene.bin');fs.writeFileSync(p,current());cp.execFileSync(codec,[p]);}finally{fs.rmSync(tmp,{recursive:true});}}
+ }finally{dom.window.close();}
+});
