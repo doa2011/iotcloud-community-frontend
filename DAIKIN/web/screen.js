@@ -268,7 +268,7 @@ function preview(it){
  if(it.type===1)return [numberPreview(it,it.hide_title?'':screenText(it.title),unit.textContent,value.textContent)];
  if(it.type===2)return [...(it.hide_title?[]:[label]),h('span',{class:'screen-widget-body'},it.text||'--')];
  if(it.type===6)return [weatherPreview(it)];
- if(it.type===8){const content=h('div',{class:'screen-camera-preview',style:'position:absolute;inset:'+((it.hide_title?12:60)/(it.h*screenGeometry.row-screenGeometry.gap)*100)+'% '+(12/(it.w*screenGeometry.column-screenGeometry.gap)*100)+'% '+(12/(it.h*screenGeometry.row-screenGeometry.gap)*100)+'%'}),image=h('img',{alt:t('screen.type.image'),style:'width:100%;height:100%;object-fit:'+(it.image_fit?'cover':'contain')});image.src='data:image/svg+xml,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="320" height="240"><path fill="#365f69" d="M0 0h320v240H0z"/><path fill="#89ad84" d="M0 0h160v120H0zM160 120h160v120H160z"/></svg>');content.append(image);return [...(it.hide_title?[]:[label]),content];}
+ if(it.type===8){const edge=it.x===0&&it.w===4,pad=edge&&it.h===6?0:12,hpad=edge?0:12;const content=h('div',{class:'screen-camera-preview',style:'position:absolute;inset:'+((pad+(it.hide_title?0:48))/(it.h*screenGeometry.row-screenGeometry.gap)*100)+'% '+(hpad/(edge?480:it.w*screenGeometry.column-screenGeometry.gap)*100)+'% '+(pad/(it.h*screenGeometry.row-screenGeometry.gap)*100)+'%'}),image=h('img',{alt:t('screen.type.image'),style:'width:100%;height:100%;object-fit:'+(it.image_fit?'cover':'contain')+';object-position:'+(it.image_fit?'center':'center top')});image.src='data:image/svg+xml,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="320" height="240"><path fill="#365f69" d="M0 0h320v240H0z"/><path fill="#89ad84" d="M0 0h160v120H0zM160 120h160v120H160z"/></svg>');content.append(image);return [...(it.hide_title?[]:[label]),content];}
  return [...(it.hide_title?[]:[label]),h('span',{class:'screen-widget-body'},appearance.language==='en'?'Water the plants':'给植物浇水')];
 }
 function setGeometry(it,values){const id=it.id;return change(()=>{Object.assign(it,values);selected=scene.items.find(x=>x.id===id);});}
@@ -377,7 +377,7 @@ const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 function componentStyle(it){
  const colors=A.widgetColors(appearance,it),p=A.resolve(appearance),image=appearance.wallpaper!=='none'&&(appearance.wallpaper!=='custom'||customPreview?.crc===appearance.custom_crc),hex=colors.background;
  const alpha=A.surface(appearance,it,image)/100,rgb=[1,3,5].map(i=>parseInt(hex.slice(i,i+2),16)).join(',');
- return componentBox(it)+';'+Object.entries(colors).map(([k,v])=>`--component-${k}:${v}`).join(';')+`;background:rgba(${rgb},${alpha});border:1px solid ${image&&it.type!==8?p.line+'66':'transparent'}`;
+ return (it.type===8&&it.x===0&&it.w===4?screenBox(0,screenGeometry.top+it.y*screenGeometry.row,480,it.h*screenGeometry.row-screenGeometry.gap):componentBox(it))+';'+Object.entries(colors).map(([k,v])=>`--component-${k}:${v}`).join(';')+`;background:rgba(${rgb},${alpha});border:${it.type===8?0:1}px solid ${image&&it.type!==8?p.line+'66':'transparent'}`;
 }
 function applyAppearancePreview(){
  const p=A.resolve(appearance);for(const [k,v]of Object.entries(p))grid.style.setProperty('--appearance-'+k,v);
@@ -461,7 +461,7 @@ const appearanceSection=section('screen.appearance',fieldRow('screen.page_rail',
 appearanceSection.id='screenAppearance';appearanceSection.hidden=true;I18N.onChange(()=>{if(scene){draw();renderAppearance();}});
 
 // Sleep policy is a separate persistent device configuration, never part of undo.
-let policy=null,policyDirty=false,policySupported=false,policyPending=0;
+let policy=null,policyDirty=false,policySupported=false,policyPending=0,pagePolicySupported=false;
 const screenLanguage=select([['zh-CN','screen.language_zh'],['en','screen.language_en']],'zh-CN');screenLanguage.id='screenLanguage';
 screenLanguage.disabled=true;screenLanguage.onchange=()=>change(()=>{appearance.language=screenLanguage.value;});
 const languageSave=button('common.save',saveAppearance,{id:'screenLanguageSave',disabled:true});
@@ -469,16 +469,39 @@ const languageSection=section('screen.language',fieldRow('screen.language',scree
 languageSection.open=true;
 const policyState=h('p',{class:'help',id:'screenPolicyState',role:'status'}),planList=h('div',{class:'stack',id:'screenPlans'});
 const policyFields={ceiling:input(100,'number',{min:1,max:100,step:1}),external_minutes:input(2,'number',{min:0,max:1440,step:1}),battery_minutes:input(1,'number',{min:0,max:1440,step:1}),idle_brightness:input(0,'number',{min:0,max:100,step:1}),idle_page:h('select')};
+const homePage=h('select',{id:'screenPolicyHome'}),idlePolicyPage=h('select',{id:'screenPolicyPage'}),idleInherit=input('','checkbox',{id:'screenPolicyInherit',checked:true});
+const pageIdleFields={external_minutes:input(2,'number',{id:'screenPageExternalMinutes',min:0,max:1440,step:1}),battery_minutes:input(1,'number',{id:'screenPageBatteryMinutes',min:0,max:1440,step:1}),idle_brightness:input(0,'number',{id:'screenPageIdleBrightness',min:0,max:100,step:1})};
+const pagePolicyHelp=h('p',{class:'help',id:'screenPagePolicyHelp'});
+const pagePolicySection=section('screen.page_idle',fieldRow('screen.home_page',homePage),fieldRow('screen.page',idlePolicyPage),fieldRow('screen.page_idle_inherit',idleInherit),...Object.entries(pageIdleFields).map(([k,el])=>fieldRow('screen.'+k,el)),pagePolicyHelp);pagePolicySection.id='screenPagePolicy';
+function renderPagePolicy(){
+ if(!policy)return;
+ const id=Number(idlePolicyPage.value),override=(policy.page_overrides||[]).find(r=>r.page_id===id);idleInherit.checked=!override;
+ homePage.disabled=idlePolicyPage.disabled=idleInherit.disabled=!pagePolicySupported;
+ for(const [key,el]of Object.entries(pageIdleFields)){el.value=(override||policy)[key];el.disabled=!pagePolicySupported||!override;}
+ pagePolicyHelp.textContent=t(pagePolicySupported?'screen.page_idle_hint':'screen.page_policy_upgrade');
+}
+function policyStableOptions(){
+ if(!policy)return;
+ homePage.replaceChildren(h('option',{value:0,selected:!policy.home_page_id,i18n:'screen.home_default'}),...(scene?.pages||[]).flatMap(p=>p.enabled?[h('option',{value:p.id,selected:p.id===policy.home_page_id},p.title)]:[]));
+ const selected=Number(idlePolicyPage.value);idlePolicyPage.replaceChildren(...(scene?.pages||[]).map(p=>h('option',{value:p.id,selected:p.id===selected},p.title)));renderPagePolicy();
+}
+homePage.onchange=()=>{if(policy){policy.home_page_id=Number(homePage.value);policyChanged();}};
+idlePolicyPage.onchange=renderPagePolicy;
+idleInherit.onchange=()=>{if(!policy||!pagePolicySupported)return;const id=Number(idlePolicyPage.value);policy.page_overrides=policy.page_overrides.filter(r=>r.page_id!==id);if(!idleInherit.checked)policy.page_overrides.push({page_id:id,...Object.fromEntries(Object.keys(pageIdleFields).map(k=>[k,policy[k]]))});policyChanged();renderPagePolicy();};
+for(const [key,el]of Object.entries(pageIdleFields))el.onchange=()=>{const r=policy?.page_overrides.find(r=>r.page_id===Number(idlePolicyPage.value));if(r){r[key]=Number(el.value);policyChanged();}};
 function pageOptions(control,value){control.replaceChildren(h('option',{value:255,selected:Number(value)===255,i18n:'screen.keep_page'}),...(scene?.pages||[]).flatMap((p,i)=>p.enabled?[h('option',{value:i,selected:Number(value)===i},`${i+1} · ${p.title}`)]:[]));}
-function renderPolicyPageOptions(){if(!policy)return;pageOptions(policyFields.idle_page,policy.idle_page);planList.querySelectorAll('[data-plan-page]').forEach(el=>pageOptions(el,policy.plans[Number(el.dataset.planPage)]?.page??255));}
+function renderPolicyPageOptions(){if(!policy)return;pageOptions(policyFields.idle_page,policy.idle_page);planList.querySelectorAll('[data-plan-page]').forEach(el=>pageOptions(el,policy.plans[Number(el.dataset.planPage)]?.page??255));policyStableOptions();}
 function policyChanged(){policyDirty=true;policyState.textContent=t('screen.policy_unsaved');}
 function invalidatePolicyPage(index,removed){
  if(!policy)return;let changed=false;
  const remap=p=>{if(p===index){changed=true;return 255;}if(removed&&p!==255&&p>index){changed=true;return p-1;}return p;};
- policy.idle_page=remap(policy.idle_page);policy.plans.forEach(p=>p.page=remap(p.page));if(changed){policyChanged();renderPolicy();}
+ policy.idle_page=remap(policy.idle_page);policy.plans.forEach(p=>p.page=remap(p.page));
+ if(pagePolicySupported){if(policy.home_page_id&&!scene.pages.some(p=>p.id===policy.home_page_id&&p.enabled)){policy.home_page_id=0;changed=true;}const keep=policy.page_overrides.filter(r=>scene.pages.some(p=>p.id===r.page_id));if(keep.length!==policy.page_overrides.length){policy.page_overrides=keep;changed=true;}}
+ if(changed){policyChanged();renderPolicy();}
 }
 function renderPolicy(){
  if(!policy)return;for(const [key,el]of Object.entries(policyFields)){if(key==='idle_page')pageOptions(el,policy[key]);else el.value=policy[key];el.disabled=!policySupported;}
+ policyStableOptions();
  planList.replaceChildren(...policy.plans.map((p,i)=>{
   const enabled=input('','checkbox',{checked:p.enabled}),name=input(p.name),days=UI.daysPicker('screenPlanDays'+i,p.days),start=input(UI.hhmm(p.start),'time'),end=input(UI.hhmm(p.end),'time'),level=input(p.brightness,'number',{min:0,max:100,step:1}),dest=h('select',{'data-plan-page':i});pageOptions(dest,p.page);
   const update=()=>{Object.assign(p,{enabled:enabled.checked,name:name.value,days:days.mask(),start:UI.toMinutes(start.value),end:UI.toMinutes(end.value),brightness:Number(level.value),page:Number(dest.value)});policyChanged();};
@@ -486,11 +509,12 @@ function renderPolicy(){
   row.onchange=update;return row;
  }));policySave.disabled=!policySupported;policyAdd.disabled=!policySupported||policy.plans.length>=8;
 }
-for(const [key,el]of Object.entries(policyFields)){el.id='screenPolicy_'+key;el.onchange=()=>{if(!policy)return;policy[key]=Number(el.value);policyChanged();};}
-async function loadPolicy(){const p=await command('screen.display.get');policySupported=!!p.supported;policy={ceiling:p.ceiling,external_minutes:p.external_minutes,battery_minutes:p.battery_minutes,idle_brightness:p.idle_brightness,idle_page:p.idle_page,plans:copy(p.plans||[])};policyDirty=false;policyPending=0;renderPolicy();policyState.textContent=t(policySupported?'screen.policy_loaded':'screen.policy_unsupported');}
+for(const [key,el]of Object.entries(policyFields)){el.id='screenPolicy_'+key;el.onchange=()=>{if(!policy)return;policy[key]=Number(el.value);policyChanged();renderPagePolicy();};}
+async function loadPolicy(){const p=await command('screen.display.get');policySupported=!!p.supported;pagePolicySupported=p.page_policy_supported===true;policy={ceiling:p.ceiling,external_minutes:p.external_minutes,battery_minutes:p.battery_minutes,idle_brightness:p.idle_brightness,idle_page:p.idle_page,plans:copy(p.plans||[]),...(pagePolicySupported?{home_page_id:p.home_page_id||0,page_overrides:copy(p.page_overrides||[])}:{})};policyDirty=false;policyPending=0;renderPolicy();policyState.textContent=t(policySupported?'screen.policy_loaded':'screen.policy_unsupported');}
 function validatePolicy(){
  const p=policy,validPage=n=>n===255||(scene?.pages[n]?.enabled===true);
  if(!p||![p.ceiling,p.external_minutes,p.battery_minutes,p.idle_brightness,p.idle_page].every(num)||p.ceiling<1||p.ceiling>100||p.external_minutes<0||p.external_minutes>1440||p.battery_minutes<0||p.battery_minutes>1440||p.idle_brightness<0||p.idle_brightness>100||!validPage(p.idle_page)||p.plans.length>8)throw Error(t('screen.invalid'));
+ if(pagePolicySupported){if(!num(p.home_page_id)||p.home_page_id<0||(p.home_page_id&&!scene.pages.some(x=>x.id===p.home_page_id&&x.enabled))||p.page_overrides.length>8)throw Error(t('screen.invalid'));const ids=new Set();for(const r of p.page_overrides){if(![r.page_id,r.external_minutes,r.battery_minutes,r.idle_brightness].every(num)||!scene.pages.some(x=>x.id===r.page_id)||ids.has(r.page_id)||r.external_minutes<0||r.external_minutes>1440||r.battery_minutes<0||r.battery_minutes>1440||r.idle_brightness<0||r.idle_brightness>100)throw Error(t('screen.invalid'));ids.add(r.page_id);}}
  for(const r of p.plans){if(![r.days,r.start,r.end,r.brightness,r.page].every(num)||r.days<0||r.days>127||(r.enabled&&!r.days)||r.start<0||r.start>=1440||r.end<0||r.end>=1440||r.start===r.end||r.brightness<0||r.brightness>100||!validPage(r.page)||encoder.encode(r.name).length>31||/[\x00-\x1f\x7f]/.test(r.name))throw Error(t('screen.invalid'));}
 }
 const policySave=button('screen.save_policy',async()=>{
@@ -498,7 +522,7 @@ const policySave=button('screen.save_policy',async()=>{
  const result=await command('screen.display.set',copy(policy));policyDirty=false;policyPending=result.revision;policyState.textContent=t('screen.policy_pending',{revision:result.revision});
 },{id:'screenPolicySave',class:'btn primary',disabled:true});
 const policyAdd=button('screen.add_plan',()=>{if(!policy||policy.plans.length>=8)return;policy.plans.push({name:t('screen.night'),enabled:true,days:127,start:23*60,end:7*60,brightness:8,page:255});policyChanged();renderPolicy();},{id:'screenAddPlan',disabled:true});
-const displayPolicy=section('screen.display_policy',button('screen.load',loadPolicy,{id:'screenPolicyLoad'}),...Object.entries(policyFields).map(([k,el])=>fieldRow('screen.'+k,el)),planList,h('div',{class:'row'},policyAdd,policySave),policyState);
+const displayPolicy=section('screen.display_policy',button('screen.load',loadPolicy,{id:'screenPolicyLoad'}),...Object.entries(policyFields).map(([k,el])=>fieldRow('screen.'+k,el)),pagePolicySection,planList,h('div',{class:'row'},policyAdd,policySave),policyState);
 displayPolicy.id='screenDisplayPolicy';
 const rules=h('div',{class:'list',id:'screenRules'}),notices=h('div',{class:'list',id:'screenNotices'});
 const kind=select([[0,'screen.once'],[1,'screen.daily'],[2,'screen.weekly']],0),when=input('','datetime-local'),at=input('09:00','time'),week=UI.daysPicker('screenWeek',31),remTitle=input(''),remText=h('textarea',{maxLength:127}),wake=select([[255,'screen.inherit'],[0,'screen.dnd'],[1,'screen.always'],[2,'screen.unread']],255),defaultWake=select([[0,'screen.dnd'],[1,'screen.always'],[2,'screen.unread']],0),ruleEnabled=input('','checkbox',{checked:true}),timezone=input(480,'number',{min:-720,max:840,step:15});
@@ -788,11 +812,19 @@ const pushSection=section('screen.external_push',h('p',{class:'help',i18n:'scree
 const cameraUrl=input('','url',{id:'screenCameraUrl',placeholder:'http://camera/mjpeg?width={width}&height={height}'}),cameraUser=input('','text',{id:'screenCameraUser',autocomplete:'off'}),cameraPassword=input('','password',{id:'screenCameraPassword',autocomplete:'new-password'}),cameraWidth=input(320,'number',{id:'screenCameraWidth',min:1,max:480}),cameraHeight=input(240,'number',{id:'screenCameraHeight',min:1,max:854}),cameraFps=input(1,'number',{id:'screenCameraFps',min:1,max:10}),cameraTls=input('','checkbox',{id:'screenCameraTls',checked:true}),cameraState=h('p',{class:'help',id:'screenCameraState',role:'status'});
 async function cameraRefresh(load=false){const d=await command('screen.stream.get');if(load){cameraUrl.value=d.url||'';cameraUser.value=d.username||'';cameraPassword.value='';cameraWidth.value=d.width;cameraHeight.value=d.height;cameraFps.value=d.fps;cameraTls.checked=d.verify_tls;}
  cameraState.textContent=t('screen.camera_status',{state:t('screen.camera_'+d.state),frames:d.frames||0,width:d.actual_width||0,height:d.actual_height||0,fps:((d.actual_millifps||0)/1000).toFixed(1),error:d.error||0});}
+async function editCameraLayout(){
+ if(!scene)await loadLayout();
+ const cameras=scene.items.filter(it=>it.type===8);
+ const item=cameras.find(it=>it.page===remotePageData?.current)||cameras.find(it=>it.page===page)||cameras[0];
+ if(!item)throw Error(t('screen.camera_add_page'));
+ page=item.page;selected=item;editing=true;draw();showScreenTab('layout');
+ grid.querySelector(`[data-component="${item.id}"]`)?.focus();
+}
 function addCameraPage(){
  if(!scene||scene.pages.length>=8||!(lastStatus?.capabilities&8388608))throw Error(t('screen.media_upgrade'));
  change(()=>{page=scene.pages.length;scene.pages.push({id:Math.max(...scene.pages.map(p=>p.id))+1,enabled:true,title:t('screen.type.image')});const item={id:Math.max(0,...scene.items.map(i=>i.id))+1,page,type:8,binding:6,x:0,y:0,w:4,h:6,source:0,title:t('screen.type.image'),unit:'',hide_title:1,image_source:0,image_fit:0};scene.items.push(item);selected=item;editing=true;});showScreenTab('layout');
 }
-const cameraSection=section('screen.camera',h('p',{class:'help',i18n:'screen.camera_help'}),fieldRow('screen.camera_url',cameraUrl),fieldRow('screen.camera_user',cameraUser),fieldRow('screen.camera_password',cameraPassword),h('div',{class:'row'},fieldRow('screen.media_width',cameraWidth),fieldRow('screen.media_height',cameraHeight),fieldRow('screen.camera_fps',cameraFps)),fieldRow('screen.camera_tls',cameraTls),h('div',{class:'row'},button('screen.load',()=>cameraRefresh(true),{id:'screenCameraLoad'}),button('common.save',async()=>{const params={url:cameraUrl.value,username:cameraUser.value,width:Number(cameraWidth.value),height:Number(cameraHeight.value),fps:Number(cameraFps.value),verify_tls:cameraTls.checked,enabled:true};if(cameraPassword.value)params.password=cameraPassword.value;await mediaOperation('screen.stream.set',params);cameraPassword.value='';await cameraRefresh();},{id:'screenCameraSave'}),button('screen.camera_start',async()=>{await mediaOperation('screen.stream.start');await cameraRefresh();},{id:'screenCameraStart'}),button('screen.camera_stop',async()=>{await mediaOperation('screen.stream.stop');await cameraRefresh();},{id:'screenCameraStop'}),button('screen.refresh',()=>cameraRefresh(),{id:'screenCameraRefresh'}),button('screen.camera_add_page',addCameraPage,{id:'screenCameraAddPage'})),cameraState);cameraSection.id='screenCamera';
+const cameraSection=section('screen.camera',h('p',{class:'help',i18n:'screen.camera_help'}),h('p',{class:'help',i18n:'screen.camera_layout_help'}),fieldRow('screen.camera_url',cameraUrl),fieldRow('screen.camera_user',cameraUser),fieldRow('screen.camera_password',cameraPassword),h('div',{class:'row'},fieldRow('screen.media_width',cameraWidth),fieldRow('screen.media_height',cameraHeight),fieldRow('screen.camera_fps',cameraFps)),fieldRow('screen.camera_tls',cameraTls),h('div',{class:'row'},button('screen.load',()=>cameraRefresh(true),{id:'screenCameraLoad'}),button('common.save',async()=>{const params={url:cameraUrl.value,username:cameraUser.value,width:Number(cameraWidth.value),height:Number(cameraHeight.value),fps:Number(cameraFps.value),verify_tls:cameraTls.checked,enabled:true};if(cameraPassword.value)params.password=cameraPassword.value;await mediaOperation('screen.stream.set',params);cameraPassword.value='';await cameraRefresh();},{id:'screenCameraSave'}),button('screen.camera_start',async()=>{await mediaOperation('screen.stream.start');await cameraRefresh();},{id:'screenCameraStart'}),button('screen.camera_stop',async()=>{await mediaOperation('screen.stream.stop');await cameraRefresh();},{id:'screenCameraStop'}),button('screen.refresh',()=>cameraRefresh(),{id:'screenCameraRefresh'}),button('screen.edit_layout',editCameraLayout,{id:'screenCameraEditLayout'}),button('screen.camera_add_page',addCameraPage,{id:'screenCameraAddPage'})),cameraState);cameraSection.id='screenCamera';
 const linkMode=select([['fixed','screen.link_fixed'],['auto','screen.link_auto']],'fixed'),linkRate=select([115200,230400,460800,921600].map(n=>[n,'screen.rate_'+n]),115200),linkMaximum=select([115200,230400,460800,921600].map(n=>[n,'screen.rate_'+n]),921600),linkApply=input('','checkbox',{id:'screenLinkApply'}),linkState=h('p',{class:'help',id:'screenLinkState',role:'status'});
 linkMode.id='screenLinkMode';linkRate.id='screenLinkRate';linkMaximum.id='screenLinkMaximum';
 async function linkRefresh(load=false){const d=await command('screen.link.get');if(load){linkMode.value=d.mode;linkRate.value=d.rate;linkMaximum.value=d.max_rate;}linkState.textContent=t('screen.link_status',{rate:d.actual_rate,state:d.state,errors:d.crc_errors,fallbacks:d.fallbacks});}

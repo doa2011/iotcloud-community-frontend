@@ -1,6 +1,7 @@
 <script setup>
 import {t} from '../i18n.js';
 
+import {sampleFresh} from '../sensorSampleAge.js';
 import {computed} from 'vue';
 import {socketStates,pressureReading,meterReading} from '../devicePresentation';
 import {hubPowerReading} from '../hubMeter.js';
@@ -11,7 +12,7 @@ const outletCount=computed(()=>props.device.model==='s30-v1b'?1:6);
 const sockets=computed(()=>socketStates(props.state,outletCount.value));
 const knownSockets=computed(()=>live.value&&sockets.value.every(v=>typeof v==='boolean'));
 const pm=computed(()=>props.device.model==='daikin'?props.state?.sensors?.pm25?.value:props.state?.pm25);
-const freshAir=computed(()=>live.value&&props.state?.sensorAt&&(props.device.model==='daikin'?props.state?.sensors?.pm25?.valid&&props.now-props.state.sensorAt+(props.state.sensors.pm25.age_ms||0)<20000:props.state?.sensor_valid&&props.now-props.state.sensorAt+(props.state.age_ms||0)<15000)&&valid(pm.value));
+const freshAir=computed(()=>live.value&&props.state?.sensorAt&&(props.device.model==='daikin'?sampleFresh('pm25',props.state?.sensors?.pm25,props.now-props.state.sensorAt):props.state?.sensor_valid&&props.now-props.state.sensorAt+(props.state.age_ms||0)<15000)&&valid(pm.value));
 const co2=computed(()=>{if(props.device.model==='daikin'){const c=props.state?.sensors?.co2;return live.value&&c?.valid&&typeof c.value==='number'&&props.now-props.state.sensorAt+c.age_ms<20000?Math.round(c.value):null;}const s=props.state?.scd40;return live.value&&s?.ready&&s.valid&&s.age_ms<20000&&props.state?.sensorAt&&props.now-props.state.sensorAt<20000&&typeof s.co2_ppm==='number'?Math.round(s.co2_ppm):null;});
 const pressure=computed(()=>live.value?pressureReading(props.state,props.now):null);
 const power=computed(()=>hubPowerReading(props.state,Math.max(props.now,Date.now())));

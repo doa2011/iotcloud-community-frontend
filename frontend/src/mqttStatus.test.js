@@ -6,7 +6,7 @@ import {encodeWire} from './wireCodec.js';
 
 const device={model:'daikin',version:'v2',mac:'aabbccddee15',username:'alice',firmware_version:'rc6',variant:'full'};
 const state={device_id:device.mac,model:'daikin',version:'rc6',firmware_variant:'full',hardware_model:'BRY88BBA15G',wifi_connected:true,
- sensors:{pm25:{valid:true,value:0,age_ms:125},co2:{valid:true,value:463,age_ms:125},tvoc:{valid:true,value:0,age_ms:125}},
+ sensors:{pm25:{valid:true,value:0,age_ms:125,max_age_ms:3600000},co2:{valid:true,value:463,age_ms:125},tvoc:{valid:true,value:0,age_ms:125}},
  screen:{clock:{sync_age_ms:1000},module:{age_ms:730}}};
 const empty={code:'ok',request_id:'read-1',data:{}};
 const status={action:'status.get'};
@@ -17,7 +17,7 @@ test('empty G3 status receipts use a live, matching publication and preserve ela
  const reply=cache.reply(device,status,empty);
  assert.equal(reply.request_id,empty.request_id);
  assert.equal(reply.data.sensors.pm25.value,0);assert.equal(reply.data.sensors.tvoc.value,0);
- assert.equal(reply.data.sensors.co2.age_ms,5125);assert.equal(reply.data.screen.clock.sync_age_ms,6000);
+ assert.equal(reply.data.sensors.pm25.max_age_ms,3600000);assert.equal(reply.data.sensors.co2.age_ms,5125);assert.equal(reply.data.screen.clock.sync_age_ms,6000);
  assert.equal(reply.data.screen.module.age_ms,5730);assert.equal(state.sensors.co2.age_ms,125);
  now=21000;assert.equal(cache.reply(device,status,empty),empty,'empty polls never renew the publication');
  now=22000;cache.observe(device,baseTopic(device)+'/state',encodeWire({...state,sensors:{co2:{valid:true,value:464,age_ms:0}}},'msgpack'));

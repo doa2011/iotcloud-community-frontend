@@ -1,3 +1,4 @@
+import {sampleLimit} from './sensorSampleAge.js';
 import {decodeWire,detectWire} from './wireCodec.js';
 import {userKey} from './deviceProtocol.js';
 const record=value=>value&&typeof value==='object'&&!Array.isArray(value);
@@ -37,8 +38,8 @@ export function applyDescriptorFeed(feeds,topic,message,{username='',retained=fa
  const metadata=old?.boot===data.boot?old.metadata:null,sensors={};
  if(metadata?.revision===data.descriptor_revision)for(const [field_id,sample] of Object.entries(data.sensors)){
   const field=metadata.fields[field_id];
-  if(!fieldID(field_id)||!field||field.type!=='number'||!record(sample)||sample.valid!==true||!Number.isFinite(sample.value)||!Number.isFinite(Math.fround(sample.value))||!Number.isInteger(sample.age_ms)||sample.age_ms<0||sample.age_ms>=20000||fractional.has('sensors.'+field_id+'.age_ms'))continue;
-  sensors[field_id]={...field,value:sample.value,age_ms:sample.age_ms};
+  if(!fieldID(field_id)||!field||field.type!=='number'||!record(sample)||sample.valid!==true||!Number.isFinite(sample.value)||!Number.isFinite(Math.fround(sample.value))||!Number.isInteger(sample.age_ms)||sample.age_ms<0||sample.age_ms>=sampleLimit(field_id,sample)||(sample.max_age_ms!==undefined&&field.unit!=='µg/m³')||fractional.has('sensors.'+field_id+'.age_ms')||fractional.has('sensors.'+field_id+'.max_age_ms'))continue;
+  sensors[field_id]={...field,value:sample.value,age_ms:sample.age_ms,...(sample.max_age_ms!==undefined?{max_age_ms:sample.max_age_ms}:{})};
  }
  feeds[key]={username,boot:data.boot,sequence:data.sequence,receivedAt:now,sensors,retired:history,...(metadata?{metadata}:{})};return true;
 }

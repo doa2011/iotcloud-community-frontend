@@ -9,7 +9,7 @@ function fixture({appearanceEnabled=false,capabilities=appearanceEnabled?8189:0}
  let current=codec?cp.execFileSync(codec,['default']):Buffer.from(w.ScreenLayout.encode({revision:1,pages:[{enabled:true,title:'Room'}],items:[{id:1,page:0,type:1,binding:6,x:0,y:0,w:2,h:2,source:1,title:'CO2',unit:'ppm'}]}));
  const writes=[];let staged,meta;let ap=w.ScreenAppearance.defaults(),rejectAppearance=false;
  const brightness={settings:{display:{luminance:60,data_type:1,power_screen_time:2,battery_screen_time:1}},saved_settings:{},snapshot_age_ms:0,request:{token:'',code:-1,state:'idle'},brightness:{available:true,supported:true,requested_percent:60,ceiling_percent:10,applied_percent:10,asleep:false}};
- let rejectBrightness=false;let policy={supported:true,revision:1,applied_revision:1,max_plans:8,ceiling:40,external_minutes:2,battery_minutes:1,idle_brightness:0,idle_page:255,plans:[]};
+ let rejectBrightness=false;let policy={supported:true,page_policy_supported:!!(capabilities&268435456),home_page_id:0,page_overrides:[],revision:1,applied_revision:1,max_plans:8,ceiling:40,external_minutes:2,battery_minutes:1,idle_brightness:0,idle_page:255,plans:[]};
  w.command=async(action,params={})=>{
   writes.push({action,params:JSON.parse(JSON.stringify(params))});
   if(action==='screen.appearance.get')return {supported:true,revision:ap.revision,applied_revision:ap.revision,bytes:Buffer.from(w.ScreenAppearance.encode(ap)).toString('base64')};
@@ -459,4 +459,47 @@ test('screen installation waits for a fresh matching MCU image before reporting 
   }
   assert.equal(polls,4);assert.match(w.document.querySelector('#screenOtaState').textContent,/installed and running/);
  }finally{dom.window.close();}
+});
+test('camera edit opens the existing widget and saves geometry and fit on the same page',async()=>{
+ const {dom,w,current,flush,click,writes}=fixture({capabilities:8388608|2097152|8192});try{
+  await w.ScreenUI.load();click('#screenCameraAddPage');click('#screenSave');await flush();
+  const before=w.ScreenLayout.decode(current()),camera=before.items.find(it=>it.type===8),d=w.document;
+  d.querySelector('#screenPage').value='0';d.querySelector('#screenPage').dispatchEvent(new w.Event('change'));
+  click('#screenCameraEditLayout');await flush();
+  assert.equal(d.querySelector('#screenPage').value,String(camera.page));
+  assert.equal(d.querySelector('#screenTab_layout').getAttribute('aria-selected'),'true');
+  assert.equal(d.querySelector('.screen-tile.selected').dataset.component,String(camera.id));
+  const field=(k,v)=>{const el=d.querySelector(`[data-component-field="${k}"]`);el.value=String(v);el.dispatchEvent(new w.Event('change'));};
+  field('w',2);field('h',2);
+  d.querySelector(`[data-component="${camera.id}"]`).dispatchEvent(new w.KeyboardEvent('keydown',{key:'ArrowRight',bubbles:true}));
+  d.querySelector(`[data-component="${camera.id}"]`).dispatchEvent(new w.KeyboardEvent('keydown',{key:'ArrowDown',shiftKey:true,bubbles:true}));
+  field('image_fit',1);assert.equal(d.querySelector('.screen-camera-preview img').style.objectFit,'cover');
+  click('#screenSave');await flush();await w.ScreenUI.load();click('#screenCameraEditLayout');await flush();
+  const saved=w.ScreenLayout.decode(current()),item=saved.items.find(it=>it.id===camera.id);
+  assert.equal(saved.pages.length,before.pages.length);assert.equal(saved.items.length,before.items.length);
+  assert.deepEqual([item.x,item.y,item.w,item.h,item.image_fit],[1,0,2,3,1]);
+  field('image_fit',0);assert.equal(d.querySelector('.screen-camera-preview img').style.objectFit,'contain');click('#screenSave');await flush();
+  assert.equal(w.ScreenLayout.decode(current()).items.find(it=>it.id===camera.id).image_fit,0);
+  assert.equal(writes.filter(it=>it.action.startsWith('screen.stream.')).length,0);
+  if(codec){const tmp=fs.mkdtempSync(path.join(os.tmpdir(),'screen-camera-layout-'));try{const p=path.join(tmp,'scene.bin');fs.writeFileSync(p,current());cp.execFileSync(codec,[p]);}finally{fs.rmSync(tmp,{recursive:true});}}
+ }finally{dom.window.close();}
+});
+
+test('home and per-page standby bind stable page IDs, preserve inheritance and gate old MCUs',async()=>{
+ const {dom,w,current,writes,flush,click}=fixture({capabilities:268435456});try{
+  await w.ScreenUI.load();await w.ScreenUI.loadPolicy();const d=w.document,scene=w.ScreenLayout.decode(current()),[a,b]=scene.pages;
+  const field=(id,value)=>{const el=d.getElementById(id);el.value=String(value);el.dispatchEvent(new w.Event('change'));};
+  field('screenPolicyHome',b.id);field('screenPolicyPage',a.id);const inherit=d.getElementById('screenPolicyInherit');inherit.checked=false;inherit.dispatchEvent(new w.Event('change'));
+  field('screenPageExternalMinutes',0);field('screenPageBatteryMinutes',7);field('screenPageIdleBrightness',5);
+  field('screenPolicyPage',b.id);assert.equal(inherit.checked,true);assert.equal(d.getElementById('screenPageBatteryMinutes').disabled,true);
+  field('screenPolicyPage',a.id);assert.equal(inherit.checked,false);assert.equal(d.getElementById('screenPageBatteryMinutes').value,'7');
+  click('#screenPolicySave');await flush();const sent=writes.findLast(x=>x.action==='screen.display.set').params;
+  assert.equal(sent.home_page_id,b.id);assert.deepEqual(sent.page_overrides,[{page_id:a.id,external_minutes:0,battery_minutes:7,idle_brightness:5}]);
+  await w.ScreenUI.loadPolicy();assert.equal(d.getElementById('screenPolicyHome').value,String(b.id));
+  field('screenPage',0);click('#screenDeletePage');assert.equal(d.getElementById('screenPolicyHome').value,String(b.id));assert.equal(d.querySelector(`#screenPolicyPage option[value="${a.id}"]`),null);
+  field('screenPolicyPage',b.id);assert.equal(inherit.checked,true);
+  field('screenPage',0);d.getElementById('screenPageEnabled').checked=false;d.getElementById('screenPageEnabled').dispatchEvent(new w.Event('change'));
+  assert.equal(d.getElementById('screenPolicyHome').value,'0');
+ }finally{dom.window.close();}
+ const legacy=fixture();try{await legacy.w.ScreenUI.load();await legacy.w.ScreenUI.loadPolicy();assert.equal(legacy.w.document.getElementById('screenPolicyHome').disabled,true);legacy.click('#screenPolicySave');await legacy.flush();assert.equal('home_page_id' in legacy.writes.findLast(x=>x.action==='screen.display.set').params,false);}finally{legacy.dom.window.close();}
 });
