@@ -55,7 +55,18 @@ export default defineConfig({
   esbuild: hubMode?{legalComments:'inline'}:undefined,
   css: hubMode?{postcss:{plugins:[{postcssPlugin:'hub-product-styles',OnceExit(sheet){const css=withoutScreen(sheet.toString());sheet.removeAll();sheet.append(css);}}]}}:undefined,
   build: hubMode?{minify:'terser',terserOptions:{compress:{passes:3}}}:undefined,
-  plugins: [vue(), ...(hubMode?[
+  plugins: [...(hubMode?[{
+    // Vue otherwise keeps components behind the imported runtime flag.
+    // Expose the immutable Hub capability before compiling the template so
+    // Rollup can discard cloud-only components and their styles.
+    name: 'hub-template-capabilities', enforce: 'pre',
+    transform(code,id){
+      if(!id.endsWith('.vue'))return;
+      const start=code.indexOf('<template>'),end=code.lastIndexOf('</template>');
+      if(start<0||end<start)return;
+      return code.slice(0,start)+code.slice(start,end).replace(/\bhubMode\b/g,'true')+code.slice(end);
+    },
+  }]:[]),vue(), ...(hubMode?[
     {...hubDevicePages({sourceRoot:root,appRoot:here}),apply:'build'},
     {...devicePages(),apply:'serve'},
   ]:[devicePages()]), webApp()],
