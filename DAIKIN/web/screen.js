@@ -734,6 +734,24 @@ const diagStart=quietButton('screen.diag_capture',()=>diagRun(async()=>{
  },{id:'screenDiagExport',disabled:true});
 I18N.onChange(()=>{if(diagWaiting)diagInfo.textContent=t('screen.diag_wait');else if(diagReport)renderDiag(diagReport);});
 const diagnosticSection=section('screen.diag_title',h('div',{class:'row'},diagMode,diagPage,diagStart,diagRead,diagExport),diagInfo,h('p',{class:'help',i18n:'screen.diag_source'}),h('div',{style:'overflow:auto'},diagTable));
+// G3 ESP32 runtime diagnostics; separate from the screen MCU frame-timing trace.
+const runtimeLogInfo=h('p',{class:'help',id:'screenRuntimeLogInfo',role:'status'},'可查看最近事件，或下载完整诊断日志。');
+const runtimeLogRows=h('pre',{id:'screenRuntimeLogRows',style:'white-space:pre-wrap;max-height:260px;overflow:auto'});
+async function readRuntimeLog(){
+ const data=await command('screen.log.get');
+ runtimeLogRows.textContent=JSON.stringify(data,null,2);
+ runtimeLogInfo.textContent='已读取最近诊断事件；完整日志请使用下载功能。';
+}
+async function downloadRuntimeLog(){
+ if(!window.DeviceSession?.fetch)throw Error('当前会话不支持直接下载，请在设备本地 WebUI 打开。');
+ const response=await window.DeviceSession.fetch('/api/v1/diagnostics/logs/download');
+ if(!response.ok)throw Error('日志下载失败：HTTP '+response.status);
+ const blob=await response.blob(),url=URL.createObjectURL(blob),link=h('a',{href:url,download:'g3-diagnostics.jsonl'});
+ document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
+ runtimeLogInfo.textContent='日志文件已生成。';
+}
+const runtimeLogSection=section('G3 运行日志',h('p',{class:'help'},'记录 ESP32 启动、UART 通信、传感器失联及 MCU OTA 异常。'),h('div',{class:'row'},button('读取日志',readRuntimeLog,{id:'screenRuntimeLogRead'}),button('下载日志',downloadRuntimeLog,{id:'screenRuntimeLogDownload'})),runtimeLogInfo,runtimeLogRows);
+runtimeLogSection.id='screenRuntimeLog';
 const mediaState=h('p',{class:'help',id:'screenPushState',role:'status'}),mediaProgress=h('progress',{max:1,value:0,hidden:true,id:'screenPushProgress'});
 const pushTitle=input('','text',{id:'screenPushTitle',maxLength:64}),pushText=h('textarea',{id:'screenPushText',maxLength:512}),pushFile=input('','file',{id:'screenPushFile',accept:'image/png,image/jpeg,image/webp'});
 const pushWidth=input(320,'number',{id:'screenPushWidth',min:1,max:480}),pushHeight=input(240,'number',{id:'screenPushHeight',min:1,max:854}),pushMode=select([['timed','screen.push_timed'],['confirm','screen.push_confirm']],'timed'),pushSeconds=input(10,'number',{id:'screenPushSeconds',min:1,max:3600}),pushWake=input('','checkbox',{id:'screenPushWake',checked:true});
@@ -831,7 +849,7 @@ async function linkRefresh(load=false){const d=await command('screen.link.get');
 const linkSection=section('screen.link',h('p',{class:'help',i18n:'screen.link_help'}),fieldRow('screen.link_mode',linkMode),fieldRow('screen.link_rate',linkRate),fieldRow('screen.link_maximum',linkMaximum),fieldRow('screen.link_apply',linkApply),h('div',{class:'row'},button('screen.load',()=>linkRefresh(true),{id:'screenLinkLoad'}),button('common.save',async()=>{await command('screen.link.set',{mode:linkMode.value,rate:Number(linkRate.value),max_rate:Number(linkMaximum.value),apply_now:linkApply.checked});await linkRefresh();},{id:'screenLinkSave'})),linkState);linkSection.id='screenLink';
 layout.id='screenLayout';reminder.id='screenReminders';weather.id='screenWeather';ota.id='screenOta';
 const tabBar=h('div',{class:'screen-tabs',role:'tablist','aria-label':t('screen.title_main')}),tabPanels=h('div',{class:'screen-tab-panels'});
-const screenTabs={layout:[layout],appearance:[appearanceSection],display:[remotePageSection,languageSection,brightness,displayPolicy],services:[pushSection,cameraSection,weather,reminder,calibrationSection],resources:[onlineSection,recoverySection,fontSection,ota],advanced:[linkSection,moduleControl],diagnostics:[diagnosticSection]};
+const screenTabs={layout:[layout],appearance:[appearanceSection],display:[remotePageSection,languageSection,brightness,displayPolicy],services:[pushSection,cameraSection,weather,reminder,calibrationSection],resources:[onlineSection,recoverySection,fontSection,ota],advanced:[linkSection,moduleControl],diagnostics:[diagnosticSection,runtimeLogSection]};
 function showScreenTab(key,focus=false){
  for(const [k]of Object.entries(screenTabs)){const active=k===key,button=document.querySelector('#screenTab_'+k),panel=document.querySelector('#screenPanel_'+k);button.setAttribute('aria-selected',String(active));button.tabIndex=active?0:-1;panel.hidden=!active;if(active&&focus)button.focus();}
 }
