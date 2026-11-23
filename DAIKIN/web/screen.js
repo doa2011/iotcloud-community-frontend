@@ -750,7 +750,7 @@ async function downloadRuntimeLog(){
  document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
  runtimeLogInfo.textContent='日志文件已生成。';
 }
-const runtimeLogSection=section('G3 运行日志',h('p',{class:'help'},'记录 ESP32 启动、UART 通信、传感器失联及 MCU OTA 异常。'),h('div',{class:'row'},button('读取日志',readRuntimeLog,{id:'screenRuntimeLogRead'}),button('下载日志',downloadRuntimeLog,{id:'screenRuntimeLogDownload'})),runtimeLogInfo,runtimeLogRows);
+const runtimeLogSection=h('details',{class:'card stack'},h('summary',{},h('b',{},'G3 运行日志')),h('p',{class:'help'},'记录 ESP32 启动、UART 通信、传感器失联及 MCU OTA 异常。'),h('div',{class:'row'},h('button',{type:'button',class:'btn',id:'screenRuntimeLogRead',onclick:e=>run(e.currentTarget,readRuntimeLog)},'读取日志'),h('button',{type:'button',class:'btn',id:'screenRuntimeLogDownload',onclick:e=>run(e.currentTarget,downloadRuntimeLog)},'下载日志')),runtimeLogInfo,runtimeLogRows);
 runtimeLogSection.id='screenRuntimeLog';
 const mediaState=h('p',{class:'help',id:'screenPushState',role:'status'}),mediaProgress=h('progress',{max:1,value:0,hidden:true,id:'screenPushProgress'});
 const pushTitle=input('','text',{id:'screenPushTitle',maxLength:64}),pushText=h('textarea',{id:'screenPushText',maxLength:512}),pushFile=input('','file',{id:'screenPushFile',accept:'image/png,image/jpeg,image/webp'});
