@@ -575,7 +575,7 @@ async function installFirmware(load){
   uploadHash.textContent=image.sha256;
   await command('screen.update.start',factory?{mode:'factory-bootstrap',sha256:image.sha256}:{mode:'stage'});
   otaState.textContent=t('screen.online_installing');
-  const until=Date.now()+300000;let installing=factory;
+  const until=Date.now()+600000;let installing=factory;
   while(Date.now()<until){
    const r=await command('screen.update.get'),s=r.ota,recovery=r.recovery||{};
    if(!s||s.sha256!==image.sha256)throw Error(t('screen.changed'));
