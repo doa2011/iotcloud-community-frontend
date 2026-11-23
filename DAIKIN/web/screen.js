@@ -556,8 +556,17 @@ async function installFirmware(load){
   if(!await UI.confirm({title:t('screen.ota'),body:t('screen.online_confirm'),ok:t('screen.online_firmware')}))return;
   firmwareMessage=true;
   const current=(await command('status.get')).screen||{},before=current.recovery||{};
-  const factory=!before.available&&!current.extension_supported&&/^SV\./.test(current.mcu_version||'');
+  // Stock MCU firmware may not report a version before first UART OTA.
+  // The recovery capability, rather than an SV.* version string, selects
+  // the first-install path (matching tools/daikin_g3_migrate).
+  const factory=!before.available&&!current.extension_supported;
   if(!before.available&&!factory)throw Error(t('screen.recovery_unavailable'));
+  console.info('[screen OTA] selected installation path',{
+   mode:factory?'factory-bootstrap':'stage',
+   mcu_version:current.mcu_version||'',
+   extension_supported:!!current.extension_supported,
+   recovery_available:!!before.available
+  });
   otaState.textContent=t('screen.firmware_uploading');
   const {bytes,sha256}=await load();
   const response=await deviceFetch('/api/v1/screen/ota/upload',{method:'POST',headers:{'Content-Type':'application/octet-stream','X-IotCloud-Target':'BRY88BBA15G-screen'},body:bytes});
