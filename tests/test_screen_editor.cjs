@@ -427,11 +427,11 @@ for(const [source,mcu,mode] of [
    Object.defineProperty(w.document.querySelector('#screenFirmwareFile'),'files',{value:[new w.File([data],'screen.bin')]});click('#screenFirmwareInstall');
   }
   for(let i=0;i<12;i++)await flush();
-  const valid=mcu!=='unknown'&&!['wrong-hash','invalid-path','wrong-size'].includes(mode);
-  const installed=['verified','compressed-transfer','no-content-length'].includes(mode)&&mcu!=='unknown';
-  assert.equal(downloads,source==='online'&&mode!=='invalid-path'?1:0);assert.equal(uploads,mcu==='unknown'||['invalid-path','wrong-size'].includes(mode)?0:1);
+  const valid=!['wrong-hash','invalid-path','wrong-size'].includes(mode);
+  const installed=['verified','compressed-transfer','no-content-length'].includes(mode);
+  assert.equal(downloads,source==='online'&&mode!=='invalid-path'?1:0);assert.equal(uploads,['invalid-path','wrong-size'].includes(mode)?0:1);
   const starts=writes.filter(v=>v.action==='screen.update.start');assert.equal(starts.length,valid?1:0,w.document.body.textContent.slice(-1500));
-  if(starts.length)assert.deepEqual(starts[0].params,mcu==='factory'?{mode:'factory-bootstrap',sha256:sha}:{mode:'stage'});
+  if(starts.length)assert.deepEqual(starts[0].params,mcu!=='community'?{mode:'factory-bootstrap',sha256:sha}:{mode:'stage'});
   const install=writes.filter(v=>v.action==='screen.update.install');assert.equal(install.length,mode==='verified'&&mcu==='community'?1:0);
   if(install.length)assert.equal(install[0].params.sha256,sha);
   assert.match(w.document.querySelector('#screenOtaState').textContent,installed?/installed and running/:/failed/);
