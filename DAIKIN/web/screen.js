@@ -461,7 +461,7 @@ const appearanceSection=section('screen.appearance',fieldRow('screen.page_rail',
 appearanceSection.id='screenAppearance';appearanceSection.hidden=true;I18N.onChange(()=>{if(scene){draw();renderAppearance();}});
 
 // Sleep policy is a separate persistent device configuration, never part of undo.
-let policy=null,policyDirty=false,policySupported=false,policyPending=0,pagePolicySupported=false;
+let policy=null,policyDirty=false,policySupported=false,policyPending=0,pagePolicySupported=false,policyLoading=false;
 const screenLanguage=select([['zh-CN','screen.language_zh'],['en','screen.language_en']],'zh-CN');screenLanguage.id='screenLanguage';
 screenLanguage.disabled=true;screenLanguage.onchange=()=>change(()=>{appearance.language=screenLanguage.value;});
 const languageSave=button('common.save',saveAppearance,{id:'screenLanguageSave',disabled:true});
@@ -476,8 +476,8 @@ const pagePolicySection=section('screen.page_idle',fieldRow('screen.home_page',h
 function renderPagePolicy(){
  if(!policy)return;
  const id=Number(idlePolicyPage.value),override=(policy.page_overrides||[]).find(r=>r.page_id===id);idleInherit.checked=!override;
- homePage.disabled=idlePolicyPage.disabled=idleInherit.disabled=!pagePolicySupported;
- for(const [key,el]of Object.entries(pageIdleFields)){el.value=(override||policy)[key];el.disabled=!pagePolicySupported||!override;}
+ homePage.disabled=idlePolicyPage.disabled=idleInherit.disabled=!pagePolicySupported||policyLoading;
+ for(const [key,el]of Object.entries(pageIdleFields)){el.value=(override||policy)[key];el.disabled=!pagePolicySupported||policyLoading||!override;}
  pagePolicyHelp.textContent=t(pagePolicySupported?'screen.page_idle_hint':'screen.page_policy_upgrade');
 }
 function policyStableOptions(){
@@ -500,17 +500,26 @@ function invalidatePolicyPage(index,removed){
  if(changed){policyChanged();renderPolicy();}
 }
 function renderPolicy(){
- if(!policy)return;for(const [key,el]of Object.entries(policyFields)){if(key==='idle_page')pageOptions(el,policy[key]);else el.value=policy[key];el.disabled=!policySupported;}
+ if(!policy){for(const el of Object.values(policyFields))el.disabled=true;homePage.disabled=idlePolicyPage.disabled=idleInherit.disabled=true;for(const el of Object.values(pageIdleFields))el.disabled=true;policyAdd.disabled=policySave.disabled=true;return;}
+ for(const [key,el]of Object.entries(policyFields)){if(key==='idle_page')pageOptions(el,policy[key]);else el.value=policy[key];el.disabled=!policySupported||policyLoading;}
  policyStableOptions();
  planList.replaceChildren(...policy.plans.map((p,i)=>{
   const enabled=input('','checkbox',{checked:p.enabled}),name=input(p.name),days=UI.daysPicker('screenPlanDays'+i,p.days),start=input(UI.hhmm(p.start),'time'),end=input(UI.hhmm(p.end),'time'),level=input(p.brightness,'number',{min:0,max:100,step:1}),dest=h('select',{'data-plan-page':i});pageOptions(dest,p.page);
   const update=()=>{Object.assign(p,{enabled:enabled.checked,name:name.value,days:days.mask(),start:UI.toMinutes(start.value),end:UI.toMinutes(end.value),brightness:Number(level.value),page:Number(dest.value)});policyChanged();};
   const row=h('div',{class:'screen-plan stack','data-plan':i},fieldRow('screen.enabled',enabled),fieldRow('screen.title',name),days,fieldRow('screen.start',start),fieldRow('screen.end',end),fieldRow('screen.sleep_brightness',level),fieldRow('screen.sleep_page',dest),h('div',{class:'row'},button('screen.up',()=>{if(i){[policy.plans[i-1],policy.plans[i]]=[p,policy.plans[i-1]];policyChanged();renderPolicy();}},{disabled:!i}),button('screen.down',()=>{if(i<policy.plans.length-1){[policy.plans[i],policy.plans[i+1]]=[policy.plans[i+1],p];policyChanged();renderPolicy();}},{disabled:i===policy.plans.length-1}),button('common.delete',()=>{policy.plans.splice(i,1);policyChanged();renderPolicy();})));
   row.onchange=update;return row;
- }));policySave.disabled=!policySupported;policyAdd.disabled=!policySupported||policy.plans.length>=8;
+ }));policySave.disabled=!policySupported||policyLoading;policyAdd.disabled=!policySupported||policyLoading||policy.plans.length>=8;
 }
 for(const [key,el]of Object.entries(policyFields)){el.id='screenPolicy_'+key;el.onchange=()=>{if(!policy)return;policy[key]=Number(el.value);policyChanged();renderPagePolicy();};}
-async function loadPolicy(){const p=await command('screen.display.get');policySupported=!!p.supported;pagePolicySupported=p.page_policy_supported===true;policy={ceiling:p.ceiling,external_minutes:p.external_minutes,battery_minutes:p.battery_minutes,idle_brightness:p.idle_brightness,idle_page:p.idle_page,plans:copy(p.plans||[]),...(pagePolicySupported?{home_page_id:p.home_page_id||0,page_overrides:copy(p.page_overrides||[])}:{})};policyDirty=false;policyPending=0;renderPolicy();policyState.textContent=t(policySupported?'screen.policy_loaded':'screen.policy_unsupported');}
+async function loadPolicy(force=false){
+ if(policyLoading||(policyDirty&&!force))return;
+ policyLoading=true;renderPolicy();
+ try{
+  const p=await command('screen.display.get');policySupported=!!p.supported;pagePolicySupported=p.page_policy_supported===true;
+  policy={ceiling:p.ceiling,external_minutes:p.external_minutes,battery_minutes:p.battery_minutes,idle_brightness:p.idle_brightness,idle_page:p.idle_page,plans:copy(p.plans||[]),...(pagePolicySupported?{home_page_id:p.home_page_id||0,page_overrides:copy(p.page_overrides||[])}:{})};
+  policyDirty=false;policyPending=0;policyState.textContent=t(policySupported?'screen.policy_loaded':'screen.policy_unsupported');
+ }finally{policyLoading=false;renderPolicy();}
+}
 function validatePolicy(){
  const p=policy,validPage=n=>n===255||(scene?.pages[n]?.enabled===true);
  if(!p||![p.ceiling,p.external_minutes,p.battery_minutes,p.idle_brightness,p.idle_page].every(num)||p.ceiling<1||p.ceiling>100||p.external_minutes<0||p.external_minutes>1440||p.battery_minutes<0||p.battery_minutes>1440||p.idle_brightness<0||p.idle_brightness>100||!validPage(p.idle_page)||p.plans.length>8)throw Error(t('screen.invalid'));
@@ -522,8 +531,8 @@ const policySave=button('screen.save_policy',async()=>{
  const result=await command('screen.display.set',copy(policy));policyDirty=false;policyPending=result.revision;policyState.textContent=t('screen.policy_pending',{revision:result.revision});
 },{id:'screenPolicySave',class:'btn primary',disabled:true});
 const policyAdd=button('screen.add_plan',()=>{if(!policy||policy.plans.length>=8)return;policy.plans.push({name:t('screen.night'),enabled:true,days:127,start:23*60,end:7*60,brightness:8,page:255});policyChanged();renderPolicy();},{id:'screenAddPlan',disabled:true});
-const displayPolicy=section('screen.display_policy',button('screen.load',loadPolicy,{id:'screenPolicyLoad'}),...Object.entries(policyFields).map(([k,el])=>fieldRow('screen.'+k,el)),pagePolicySection,planList,h('div',{class:'row'},policyAdd,policySave),policyState);
-displayPolicy.id='screenDisplayPolicy';
+const displayPolicy=section('screen.display_policy',button('screen.load',()=>loadPolicy(true),{id:'screenPolicyLoad'}),...Object.entries(policyFields).map(([k,el])=>fieldRow('screen.'+k,el)),pagePolicySection,planList,h('div',{class:'row'},policyAdd,policySave),policyState);
+displayPolicy.id='screenDisplayPolicy';renderPolicy();
 const rules=h('div',{class:'list',id:'screenRules'}),notices=h('div',{class:'list',id:'screenNotices'});
 const kind=select([[0,'screen.once'],[1,'screen.daily'],[2,'screen.weekly']],0),when=input('','datetime-local'),at=input('09:00','time'),week=UI.daysPicker('screenWeek',31),remTitle=input(''),remText=h('textarea',{maxLength:127}),wake=select([[255,'screen.inherit'],[0,'screen.dnd'],[1,'screen.always'],[2,'screen.unread']],255),defaultWake=select([[0,'screen.dnd'],[1,'screen.always'],[2,'screen.unread']],0),ruleEnabled=input('','checkbox',{checked:true}),timezone=input(480,'number',{min:-720,max:840,step:15});
 let ruleId=0;
@@ -861,6 +870,9 @@ const tabBar=h('div',{class:'screen-tabs',role:'tablist','aria-label':t('screen.
 const screenTabs={layout:[layout],appearance:[appearanceSection],display:[remotePageSection,languageSection,brightness,displayPolicy],services:[pushSection,cameraSection,weather,reminder,calibrationSection],resources:[onlineSection,recoverySection,fontSection,ota],advanced:[linkSection,moduleControl],diagnostics:[diagnosticSection,runtimeLogSection]};
 function showScreenTab(key,focus=false){
  for(const [k]of Object.entries(screenTabs)){const active=k===key,button=document.querySelector('#screenTab_'+k),panel=document.querySelector('#screenPanel_'+k);button.setAttribute('aria-selected',String(active));button.tabIndex=active?0:-1;panel.hidden=!active;if(active&&focus)button.focus();}
+ // Load the persisted sleep policy automatically when its tab is opened.
+ // Never replace an in-progress user edit with a background refresh.
+ if(key==='display'&&!policyDirty)loadPolicy().catch(error=>{policyState.textContent=String(error?.message||error);});
 }
 for(const [key,sections]of Object.entries(screenTabs)){
  const panel=h('section',{class:'stack',id:'screenPanel_'+key,role:'tabpanel','aria-labelledby':'screenTab_'+key,hidden:key!=='layout'},...sections);
