@@ -572,6 +572,7 @@ const D={
 "a1.ring_aria":["A1 ring preview: 31 evenly spaced lights; light 10 at 6 o’clock, lights 25 and 26 either side of 12 o’clock","A1 圆环导光预览：31 颗光源均匀分布，10 号在 6 点，25 和 26 号分列 12 点两侧"],
 "backup.title":["Configuration backup", "配置备份"],
 "backup.hint":["Full backups contain Wi-Fi, MQTT and web passwords. Keep the file private. M1 MCU music is stored separately. A web password and direct LAN connection are required.", "完整备份包含 Wi-Fi、MQTT 和网页密码，请妥善保管文件。M1 MCU 音乐需单独保存。完整备份需要网页密码和内网直连。"],
+"backup.hint_g3":["Full backups include Wi-Fi, MQTT, web credentials, weather API keys and G3 screen configuration (layout, brightness, sleep schedules, display policies, weather settings and reminders). MCU font files and wallpaper image data are intentionally excluded. Keep the file private; a web password and direct LAN connection are required.", "完整备份包含 Wi-Fi、MQTT、网页密码、天气 API 密钥及 G3 屏幕配置（布局、亮度、休眠计划、显示策略、天气设置和提醒事项）。MCU 自定义字体文件及壁纸图片数据不纳入备份。请妥善保管文件；完整备份需要网页密码和内网直连。"],
 "backup.download":["Download full backup", "下载完整备份"],
 "backup.public":["Download public settings", "下载公开配置"],
 "backup.partial":["This device supports a partial backup only. Passwords are omitted; save them separately before upgrading.", "此设备仅支持部分备份，不包含密码；升级前请另行保存密码。"],
