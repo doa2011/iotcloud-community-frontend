@@ -67,14 +67,15 @@ export function createDeviceTransport({fetcher=globalThis.fetch,records={},onSta
     if(!current(key,e))return false;
     records[key].checking=true;
     // One deadline covers identity and the initial status read.
-    const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),2000);
+    const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),15000);
+    e.controllers.add(controller);
     try{
      await e.session.ready(controller.signal);const identity=e.session.wire.identity,i={...identity,firmware_variant:identity.variant,api_version:1};
-     const status=await request(e,'/api/v1/command',{method:'POST',value:{action:'status.get',params:{}},signal:controller.signal},2000);
+     const status=await request(e,'/api/v1/command',{method:'POST',value:{action:'status.get',params:{}},signal:controller.signal},5000);
      if(status.code!=='ok'||!status.data||normalizeMAC(status.data.device_id)!==normalizeMAC(e.device.mac))throw Error(t('p.6966db4cb1c5'));
      if(current(key,e)){records[key]={ready:true,checking:false,address:e.address,reason:t('p.a2d6d3fd2463'),info:i};onStatus(key,status.data);}
      return current(key,e);
-    }finally{clearTimeout(timer);}
+    }finally{clearTimeout(timer);e.controllers.delete(controller);}
    }catch(err){if(current(key,e))records[key]={ready:false,checking:false,address:e.address,reason:err.name==='AbortError'?t('p.dc4ace469fac'):err.message||t('p.f09b3b04b23a')};return false;}
    finally{active--;drain();e.promise=null;}
   })();return e.promise;
