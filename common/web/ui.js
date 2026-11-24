@@ -458,7 +458,7 @@ function downloadFile(data,name,type='application/octet-stream'){
  const url=URL.createObjectURL(new Blob([data],{type})),a=h('a',{href:url,download:name});document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
 }
 function backupCard(){
- const full=!!UI.caps?.config_backup;
+ const full=!!UI.caps?.config_backup,screen=UI.caps?.hardware_model==='BRY88BBA15G';
  const download=h('button',{class:'btn',type:'button'},h('span',{i18n:full?'backup.download':'backup.public'}));
  download.onclick=()=>run(download,async()=>{
   if(!full){downloadFile(JSON.stringify({schema:1,partial:true,model:UI.caps.model,config:await command('config.get')},null,2),'phicomm-public-settings.json','application/json');return;}
@@ -468,12 +468,12 @@ function backupCard(){
  const file=h('input',{type:'file',accept:'.phcb,.json',required:true});
  const form=h('form',{class:'stack',hidden:!full},file,h('button',{type:'submit',class:'btn'},h('span',{i18n:'backup.restore'})));
  onSubmit(form,async()=>{
-  if(!file.files?.[0]||file.files[0].size>16384)throw Error(t('backup.failed'));
+  if(!file.files?.[0]||file.files[0].size>(screen?65536:16384))throw Error(t('backup.failed'));
   if(!await confirmDialog({title:t('backup.restore'),body:t('backup.confirm'),ok:t('backup.restore'),danger:true}))return;
   const response=await deviceFetch('/api/v1/config/restore',{method:'POST',headers:{'Content-Type':'application/octet-stream'},body:await file.files[0].arrayBuffer(),credentials:'same-origin'});
   if(response.status!==202)throw Error(t('backup.failed'));toast(t('backup.restoring'));
  });
- return card('backup.title',null,h('p',{class:'help',i18n:full?'backup.hint':'backup.partial'}),download,form);
+ return card('backup.title',null,h('p',{class:'help',i18n:full?(screen?'backup.hint_g3':'backup.hint'):'backup.partial'}),download,form);
 }
 function firmwarePage(dev){
  const mcu=mayM1&&dev.model==='M1'?mcuVersionPanel():null;
