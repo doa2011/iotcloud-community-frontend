@@ -107,7 +107,10 @@ export function createDeviceTransport({fetcher=globalThis.fetch,records={},onSta
  async function resource(key,path,options={}){
   const e=entries.get(key),method=options.method||'GET';
   if(!((path==='/api/v1/config/backup'&&method==='GET')||(path==='/api/v1/config/restore'&&method==='POST')))throw Error(t('backup.invalid_path'));
-  if(!e||e.mode==='mqtt'||!await probe(key,true)||!current(key,e))throw Error(t('backup.lan_required'));
+  if(!e||e.mode==='mqtt'||!e.address||!current(key,e))throw Error(t('backup.device_changed'));
+  // File transfer is authenticated against the configured device HTTP endpoint.
+  // Do not require LAN discovery: routed/VPN access can work even when the LAN
+  // probe is unavailable. The actual request below remains the connectivity test.
   const result=await request(e,path,{method,body:options.body,signal:options.signal,headers:{'Content-Type':'application/octet-stream'}},20000,true);
   if(!current(key,e))throw Error(t('backup.device_changed'));
   return result;
