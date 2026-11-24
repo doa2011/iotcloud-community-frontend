@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {createDeviceTransport,localAddress,savePreference,loadPreference} from './deviceConnection.js';
+import {createDeviceTransport,localAddress,connectionAddress,savePreference,loadPreference} from './deviceConnection.js';
 const device={mac:'aabbccddeeff',model:'a1',version:'v2'};
 const response=data=>({ok:true,status:200,json:async()=>data});
 const info={code:'ok',data:{device_id:device.mac,model:'a1',api_version:1}};
@@ -70,4 +70,13 @@ test('signed hub conversion keeps explicit guards and authenticates only when a 
  t.configure('d',daikin,{mode:'mqtt',address:'http://192.168.1.115'},'web-secret');assert.equal((await t.upload('d',file,false,()=>{},XHR,target).promise).status,0);
  assert.equal(requests.length,count+1,'MQTT-only conversion cannot send an upload');t.stop();
  const a1=fixture(async url=>response(url.endsWith('/info')?info:status));await a1.t.probe('d');assert.equal((await a1.t.upload('d',file,false,()=>{},XHR,target).promise).status,0);a1.t.stop();assert.equal(requests.length,count+1);
+});
+
+test('remote endpoint preferences preserve strict local conversion guard',()=>{
+ for(const value of ['https://g3.example.com','https://[2001:db8::1]:8443','http://100.64.1.2','100.127.1.2']){
+  const address=connectionAddress(value);assert.throws(()=>localAddress(address));
+  const values=new Map(),storage={getItem:k=>values.get(k),setItem:(k,v)=>values.set(k,v)};
+  savePreference('remote','d',{mode:'auto',address},storage);assert.equal(loadPreference('remote','d',storage).address,address);
+ }
+ for(const value of ['http://8.8.8.8','http://100.128.1.2','https://user:pass@g3.example.com','https://g3.example.com/path','https://g3.example.com?x=1','https://g3.example.com:0'])assert.throws(()=>connectionAddress(value));
 });
