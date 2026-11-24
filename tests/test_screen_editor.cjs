@@ -180,6 +180,27 @@ test('composed pages support geometry, undo, browser persistence and separate sl
   const prior=writes.filter(x=>x.action==='screen.layout.begin').length;await w.ScreenUI.load();assert.equal(writes.filter(x=>x.action==='screen.layout.begin').length,prior);
  }finally{dom.window.close();}
 });
+test('display tab automatically loads saved weekly sleep plans and preserves dirty edits',async()=>{
+ const {dom,w,writes,click,flush}=fixture();try{
+  const command=w.command;let reads=0;
+  w.command=async(action,params)=>{const result=await command(action,params);if(action==='screen.display.get'){reads++;return {...result,ceiling:85,external_minutes:3,battery_minutes:2,idle_brightness:4,plans:[
+   {name:'夜间',enabled:true,days:127,start:1380,end:420,brightness:0,page:255},
+   {name:'白天-工作日',enabled:true,days:31,start:540,end:1380,brightness:0,page:255},
+   {name:'白天-周末',enabled:true,days:96,start:420,end:1380,brightness:50,page:255}
+  ]};}return result;};
+  w.ScreenUI.status({hardware_model:'BRY88BBA15G',screen:{extension_supported:true,capabilities:32}});
+  click('#screenTab_display');await flush();
+  assert.equal(reads,1);assert.equal(writes.filter(x=>x.action==='screen.display.get').length,1);
+  assert.equal(w.document.querySelectorAll('#screenPlans .screen-plan').length,3);
+  assert.equal(w.document.querySelector('#screenPolicy_ceiling').value,'85');
+  assert.equal(w.document.querySelector('#screenAddPlan').disabled,false);
+  assert.equal(w.document.querySelector('#screenPolicySave').disabled,false);
+  const ceiling=w.document.querySelector('#screenPolicy_ceiling');ceiling.value='75';ceiling.dispatchEvent(new w.Event('change'));
+  click('#screenTab_layout');click('#screenTab_display');await flush();
+  assert.equal(reads,1,'re-entering display tab must not overwrite unsaved edits');
+  assert.equal(ceiling.value,'75');
+ }finally{dom.window.close();}
+});
 test('weekly sleep rejects an empty weekday set and layout sizes protect readability',async()=>{
  const {dom,w,writes,flush,click,current}=fixture();try{
   await w.ScreenUI.load();await w.ScreenUI.loadPolicy();const d=w.document;click('#screenAddPlan');
