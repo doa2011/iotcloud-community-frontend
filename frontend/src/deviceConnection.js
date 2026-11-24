@@ -12,12 +12,27 @@ export function localAddress(raw){
  if(p.length!==4||p.some(n=>n>255)||!(p[0]===10||(p[0]===172&&p[1]>=16&&p[1]<=31)||(p[0]===192&&p[1]===168))||Number(url.port||80)<1||Number(url.port||80)>65535)throw Error(t('p.67be4629a923'));
  return url.origin;
 }
+// Explicit remote endpoints may use HTTPS; HTTP remains limited to private
+// IPv4 and the shared-address range used by routed VPNs.
+export function connectionAddress(raw){
+ if(!raw)return '';
+ const value=String(raw).trim();
+ try{return localAddress(value);}catch{}
+ if(!/^(?:https:\/\/[^/?#@\\\s]+\/?|(?:http:\/\/)?100\.\d{1,3}\.\d{1,3}\.\d{1,3}(?::\d{1,5})?\/?)$/i.test(value))throw Error(t('p.8c1e3096f2fd'));
+ const url=new URL(/^https?:\/\//i.test(value)?value:'http://'+value);
+ if(url.username||url.password||url.pathname!=='/'||url.search||url.hash||url.port==='0')throw Error(t('p.8c1e3096f2fd'));
+ if(url.protocol==='http:'){
+  const p=url.hostname.split('.').map(Number);
+  if(p.length!==4||p[0]!==100||p[1]<64||p[1]>127||p.some(n=>!Number.isInteger(n)||n<0||n>255))throw Error(t('p.67be4629a923'));
+ }
+ return url.origin;
+}
 const storageKey=(scope,key)=>'phicomm.device-connection.'+encodeURIComponent(scope)+':'+encodeURIComponent(key);
 export function loadPreference(scope,key,storage=localStorage){
- try{const p=JSON.parse(storage.getItem(storageKey(scope,key))||'{}');return {mode:p.mode==='mqtt'?'mqtt':'auto',address:localAddress(p.address||''),lastAddress:localAddress(p.lastAddress||'')};}catch{return {mode:'auto',address:'',lastAddress:''};}
+ try{const p=JSON.parse(storage.getItem(storageKey(scope,key))||'{}');return {mode:p.mode==='mqtt'?'mqtt':'auto',address:connectionAddress(p.address||''),lastAddress:connectionAddress(p.lastAddress||'')};}catch{return {mode:'auto',address:'',lastAddress:''};}
 }
 export function savePreference(scope,key,value,storage=localStorage){
- const p={mode:value.mode==='mqtt'?'mqtt':'auto',address:localAddress(value.address||''),lastAddress:localAddress(value.lastAddress||'')};storage.setItem(storageKey(scope,key),JSON.stringify(p));return p;
+ const p={mode:value.mode==='mqtt'?'mqtt':'auto',address:connectionAddress(value.address||''),lastAddress:connectionAddress(value.lastAddress||'')};storage.setItem(storageKey(scope,key),JSON.stringify(p));return p;
 }
 export function createDeviceTransport({fetcher=globalThis.fetch,records={},onStatus=()=>{}}={}){
  let active=0,disposed=false;const entries=new Map(),queue=[];
