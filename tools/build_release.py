@@ -73,7 +73,8 @@ def main():
         shutil.copyfile(ROOT / name, dest)
     hashes = {str(p.relative_to(out)): hashlib.sha256(p.read_bytes()).hexdigest()
               for p in sorted(out.rglob('*')) if p.is_file()}
-    manifest = dict(schema=1, repository='phicomm-io/iotcloud-community-frontend', commit=commit, features=['bootstrap-ui', 'local-console', 'sensor-providers', 'daikin', 'daikin-hub', 'daikin-g3', 'screen-scn3', 's30-v1b'], files=hashes)
+    repository = os.environ.get('PHICOMM_FRONTEND_REPOSITORY') or os.environ.get('GITHUB_REPOSITORY') or 'phicomm-io/iotcloud-community-frontend'
+    manifest = dict(schema=1, repository=repository, commit=commit, features=['bootstrap-ui', 'local-console', 'sensor-providers', 'daikin', 'daikin-hub', 'daikin-g3', 'screen-scn3', 's30-v1b'], files=hashes)
     (out / 'manifest.json').write_text(json.dumps(manifest, indent=2, sort_keys=True) + '\n')
     archive = ROOT / 'build/frontend.tar.gz'
     # No wall-clock timestamps or machine identities in the archive.
