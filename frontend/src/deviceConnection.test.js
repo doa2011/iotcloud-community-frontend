@@ -106,3 +106,47 @@ test('remote backup and restore use authenticated HTTP without status probe',asy
   assert.equal(calls.filter(([url])=>url.includes('/config/')).length,2);
  }finally{t.stop();}
 });
+
+test('slow discovery survives former two-second probe deadline',async()=>{
+ const {t,records}=fixture(async url=>{
+  if(url.endsWith('/info')){await new Promise(resolve=>setTimeout(resolve,2100));return response(info);}
+  return response(status);
+ });
+ try{assert.equal(await t.probe('d'),true);assert.equal(records.d.ready,true);}
+ finally{t.stop();}
+});
+test('switching endpoint cancels stale discovery',async()=>{
+ const records={};let started,aborted=false;
+ const ready=new Promise(resolve=>{started=resolve;});
+ const t=createDeviceTransport({records,fetcher:legacy(async(url,opts)=>{
+  if(url.startsWith('http://192.168.1.10/')&&url.endsWith('/info')){
+   return new Promise((resolve,reject)=>{
+    const cancel=()=>{aborted=true;reject(new DOMException('aborted','AbortError'));};
+    opts.signal.addEventListener('abort',cancel,{once:true});if(opts.signal.aborted)cancel();started();
+   });
+  }
+  return response(url.endsWith('/info')?info:status);
+ })});
+ try{
+  t.configure('d',device,{mode:'auto',address:'http://192.168.1.10'},'web-pass');
+  const stale=t.probe('d');await ready;
+  t.configure('d',device,{mode:'auto',address:'https://g3.example.com'},'web-pass');
+  assert.equal(await stale,false);assert.equal(aborted,true);
+  assert.equal(await t.probe('d'),true);assert.equal(records.d.address,'https://g3.example.com');
+ }finally{t.stop();}
+});
+test('remote restore rejects wrong identity or password before file transfer',async()=>{
+ for(const wrongIdentity of [true,false]){
+  let transfers=0;
+  const t=createDeviceTransport({fetcher:async(url)=>{
+   if(url.endsWith('/info'))return response(wrongIdentity?{...info,data:{...info.data,device_id:'000000000000'}}:info);
+   if(url.endsWith('/auth/login'))return {ok:false,status:401};
+   transfers++;throw Error('unexpected file transfer');
+  }});
+  try{
+   t.configure('d',device,{mode:'auto',address:'https://g3.example.com'},'web-pass');
+   await assert.rejects(t.resource('d','/api/v1/config/restore',{method:'POST',body:new Uint8Array([1,2,3])}));
+   assert.equal(transfers,0);
+  }finally{t.stop();}
+ }
+});
