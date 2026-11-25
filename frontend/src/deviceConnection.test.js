@@ -51,7 +51,7 @@ test('signed hub conversion keeps explicit guards and authenticates only when a 
   abort(){this.onabort?.();}
  }
  const daikin={...device,model:'daikin'},records={},t=createDeviceTransport({records,fetcher:legacy(async url=>response(url.endsWith('/info')?{...info,data:{...info.data,model:'daikin',firmware_variant:'full'}}:status))});
- const configure=password=>t.configure('d',daikin,{mode:'auto',address:'http://192.168.1.115'},password);
+ const configure=(password,address='http://192.168.1.115')=>t.configure('d',daikin,{mode:'auto',address},password);
  configure('web-secret');await t.probe('d');
  const file=new Blob(['intact signed envelope']),target={variant:'hub',confirm:'full-to-hub'};
  for(const rescue of [false,true]){
@@ -70,7 +70,11 @@ test('signed hub conversion keeps explicit guards and authenticates only when a 
  assert.equal(requests.at(-1).file,file);assert.equal(requests.at(-1).url,'http://192.168.1.115/api/v1/ota/convert');
  assert.deepEqual(requests.at(-1).headers,{Accept:'application/json','Content-Type':'application/octet-stream','X-IoTCloud-Target-Variant':'hub','X-IoTCloud-Confirm':'full-to-hub'});
  t.configure('d',daikin,{mode:'mqtt',address:'http://192.168.1.115'},'web-secret');assert.equal((await t.upload('d',file,false,()=>{},XHR,target).promise).status,0);
- assert.equal(requests.length,count+1,'MQTT-only conversion cannot send an upload');t.stop();
+ assert.equal(requests.length,count+1,'MQTT-only conversion cannot send an upload');
+ configure('web-secret','https://g3.example.com');await t.probe('d');
+ assert.equal((await t.upload('d',file,false,()=>{},XHR,target).promise).status,202);
+ assert.equal(requests.at(-1).url,'https://g3.example.com/api/v1/ota/convert','Full-to-Hub conversion must not be restricted to private IP ranges');
+ t.stop();
  const a1=fixture(async url=>response(url.endsWith('/info')?info:status));await a1.t.probe('d');assert.equal((await a1.t.upload('d',file,false,()=>{},XHR,target).promise).status,0);a1.t.stop();assert.equal(requests.length,count+1);
 });
 
