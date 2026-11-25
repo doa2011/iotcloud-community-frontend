@@ -378,7 +378,7 @@ const D={
 "screen.firmware_installed":["Screen firmware installed and running", "屏幕固件已安装并正常启动"],
 "screen.firmware_failed":["Screen installation failed", "屏幕固件安装失败"],
 "screen.online_timeout":["Installation timed out; inspect screen update status", "安装超时，请检查屏幕升级状态"],
-"screen.online_local":["Connect directly over the LAN. Both factory and community screen firmware can be updated here.", "请通过局域网直连。原厂和社区屏幕固件均可在此直接升级。"],
+"screen.online_local":["Connect to the device over authenticated HTTP. Both factory and community screen firmware can be updated here.", "通过已认证的设备 HTTP 接口连接。原厂和社区屏幕固件均可在此升级。"],
 "screen.ota":["Screen firmware", "屏幕固件"],
 "screen.recovery":["MCU startup", "MCU 启动控制"],
 "screen.recovery_resume":["Start now", "立即继续启动"],
