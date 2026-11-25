@@ -33,7 +33,8 @@ function receive(event){
  }
  if(event.data?.type==='device-resource'){
   const {id,path,method,body}=event.data,target=event.source;
-  if(typeof id!=='string'||!['/api/v1/config/backup','/api/v1/config/restore'].includes(path)||body?.byteLength>16384)return;
+  const maxBytes=props.device.hardware_model==='BRY88BBA15G'?65536:16384;
+  if(typeof id!=='string'||!['/api/v1/config/backup','/api/v1/config/restore'].includes(path)||body?.byteLength>maxBytes)return;
   emit('resource',path,{method,body},result=>{if(frame.value?.contentWindow===target)target.postMessage({type:'device-resource-result',id,...result},location.origin);});return;
  }
  if(event.data?.type!=='device-command')return;

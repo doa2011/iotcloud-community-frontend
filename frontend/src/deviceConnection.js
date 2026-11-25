@@ -4,20 +4,43 @@ import {t} from './i18n.js';
 import {normalizeMAC} from './deviceProtocol.js';
 import {createDeviceHttpSession} from './deviceHttpSession.js';
 
-export function localAddress(raw){
+function normalizeDeviceAddress(raw){
  if(!raw)return '';
  const value=String(raw).trim();
- if(!/^(?:http:\/\/)?\d{1,3}(?:\.\d{1,3}){3}(?::\d{1,5})?\/?$/.test(value))throw Error(t('p.8c1e3096f2fd'));
- const url=new URL(value.startsWith('http://')?value:'http://'+value),p=url.hostname.split('.').map(Number);
- if(p.length!==4||p.some(n=>n>255)||!(p[0]===10||(p[0]===172&&p[1]>=16&&p[1]<=31)||(p[0]===192&&p[1]===168))||Number(url.port||80)<1||Number(url.port||80)>65535)throw Error(t('p.67be4629a923'));
+ if(!value||/[\s\u0000-\u001f]/.test(value))throw Error(t('p.8c1e3096f2fd'));
+ let url;
+ try{
+  if(/^[a-z][a-z0-9+.-]*:\/\//i.test(value))url=new URL(value);
+  else{
+   let host=value.replace(/\/$/,'');
+   // Accept an unbracketed bare IPv6 literal. IPv6 with an explicit port
+   // must use the standard [address]:port form to remain unambiguous.
+   if(host.includes(':')&&!host.startsWith('[')&&/^[0-9a-f:]+$/i.test(host))host='['+host+']';
+   const unwrapped=host.startsWith('[')?host.slice(1,host.indexOf(']')):host.replace(/:\d+$/,'');
+   const privateV4=/^(?:10\.|127\.|169\.254\.|192\.168\.|172\.(?:1[6-9]|2\d|3[01])\.|100\.(?:6[4-9]|[7-9]\d|1[01]\d|12[0-7])\.)/i.test(unwrapped);
+   const localV6=/^(?:::1|fc|fd|fe80)/i.test(unwrapped);
+   const localName=/\.local$/i.test(unwrapped);
+   // Preserve convenient HTTP for directly attached/private endpoints. All
+   // other bare addresses default to HTTPS; explicit http:// remains allowed.
+   url=new URL((privateV4||localV6||localName?'http://':'https://')+host);
+  }
+ }catch{throw Error(t('p.8c1e3096f2fd'));}
+ if(!['http:','https:'].includes(url.protocol)||!url.hostname||url.username||url.password||
+    url.pathname!=='/'||url.search||url.hash)throw Error(t('p.8c1e3096f2fd'));
+ const port=Number(url.port||(url.protocol==='https:'?443:80));
+ if(!Number.isInteger(port)||port<1||port>65535)throw Error(t('p.8c1e3096f2fd'));
  return url.origin;
 }
+// The device address is user-supplied. Do not impose RFC1918, CGNAT,
+// subnet, private/public, hostname, IPv4 or IPv6 allowlists here.
+export function localAddress(raw){return normalizeDeviceAddress(raw);}
+export function connectionAddress(raw){return normalizeDeviceAddress(raw);}
 const storageKey=(scope,key)=>'phicomm.device-connection.'+encodeURIComponent(scope)+':'+encodeURIComponent(key);
 export function loadPreference(scope,key,storage=localStorage){
- try{const p=JSON.parse(storage.getItem(storageKey(scope,key))||'{}');return {mode:p.mode==='mqtt'?'mqtt':'auto',address:localAddress(p.address||''),lastAddress:localAddress(p.lastAddress||'')};}catch{return {mode:'auto',address:'',lastAddress:''};}
+ try{const p=JSON.parse(storage.getItem(storageKey(scope,key))||'{}');return {mode:p.mode==='mqtt'?'mqtt':'auto',address:connectionAddress(p.address||''),lastAddress:connectionAddress(p.lastAddress||'')};}catch{return {mode:'auto',address:'',lastAddress:''};}
 }
 export function savePreference(scope,key,value,storage=localStorage){
- const p={mode:value.mode==='mqtt'?'mqtt':'auto',address:localAddress(value.address||''),lastAddress:localAddress(value.lastAddress||'')};storage.setItem(storageKey(scope,key),JSON.stringify(p));return p;
+ const p={mode:value.mode==='mqtt'?'mqtt':'auto',address:connectionAddress(value.address||''),lastAddress:connectionAddress(value.lastAddress||'')};storage.setItem(storageKey(scope,key),JSON.stringify(p));return p;
 }
 export function createDeviceTransport({fetcher=globalThis.fetch,records={},onStatus=()=>{}}={}){
  let active=0,disposed=false;const entries=new Map(),queue=[];
@@ -52,14 +75,15 @@ export function createDeviceTransport({fetcher=globalThis.fetch,records={},onSta
     if(!current(key,e))return false;
     records[key].checking=true;
     // One deadline covers identity and the initial status read.
-    const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),2000);
+    const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),15000);
+    e.controllers.add(controller);
     try{
      await e.session.ready(controller.signal);const identity=e.session.wire.identity,i={...identity,firmware_variant:identity.variant,api_version:1};
-     const status=await request(e,'/api/v1/command',{method:'POST',value:{action:'status.get',params:{}},signal:controller.signal},2000);
+     const status=await request(e,'/api/v1/command',{method:'POST',value:{action:'status.get',params:{}},signal:controller.signal},5000);
      if(status.code!=='ok'||!status.data||normalizeMAC(status.data.device_id)!==normalizeMAC(e.device.mac))throw Error(t('p.6966db4cb1c5'));
      if(current(key,e)){records[key]={ready:true,checking:false,address:e.address,reason:t('p.a2d6d3fd2463'),info:i};onStatus(key,status.data);}
      return current(key,e);
-    }finally{clearTimeout(timer);}
+    }finally{clearTimeout(timer);e.controllers.delete(controller);}
    }catch(err){if(current(key,e))records[key]={ready:false,checking:false,address:e.address,reason:err.name==='AbortError'?t('p.dc4ace469fac'):err.message||t('p.f09b3b04b23a')};return false;}
    finally{active--;drain();e.promise=null;}
   })();return e.promise;
@@ -107,7 +131,10 @@ export function createDeviceTransport({fetcher=globalThis.fetch,records={},onSta
  async function resource(key,path,options={}){
   const e=entries.get(key),method=options.method||'GET';
   if(!((path==='/api/v1/config/backup'&&method==='GET')||(path==='/api/v1/config/restore'&&method==='POST')))throw Error(t('backup.invalid_path'));
-  if(!e||e.mode==='mqtt'||!await probe(key,true)||!current(key,e))throw Error(t('backup.lan_required'));
+  if(!e||e.mode==='mqtt'||!e.address||!current(key,e))throw Error(t('backup.device_changed'));
+  // File transfer is authenticated against the configured device HTTP endpoint.
+  // Do not require LAN discovery: routed/VPN access can work even when the LAN
+  // probe is unavailable. The actual request below remains the connectivity test.
   const result=await request(e,path,{method,body:options.body,signal:options.signal,headers:{'Content-Type':'application/octet-stream'}},20000,true);
   if(!current(key,e))throw Error(t('backup.device_changed'));
   return result;

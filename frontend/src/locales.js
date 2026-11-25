@@ -1666,16 +1666,16 @@ const messages = {
     "无需账号 · 无需后端"
   ],
   "p.8cb925b229b0": [
-    "Enter the device's LAN IP to control it and configure Wi-Fi and MQTT. Allow local network access in your browser.",
-    "填写设备内网 IP，即可控制设备、配置 Wi-Fi 和 MQTT。请允许浏览器访问本地网络。"
+    "Enter the device IP address or hostname (any network). Use an explicit http:// or https:// URL when needed.",
+    "填写设备 IP 地址或域名（不限制网络和网段）；需要时可明确填写 http:// 或 https://。"
   ],
   "p.3fd1c5c06889": [
     "Device IP",
     "设备 IP"
   ],
   "p.42b008274992": [
-    "192.168.1.100 or 192.168.1.100:80",
-    "192.168.1.100 或 192.168.1.100:80"
+    "192.168.1.100:80 or https://device.example.com",
+    "192.168.1.100:80 或 https://device.example.com"
   ],
   "p.f07ec443fcb9": [
     "Device web management password",
@@ -2285,12 +2285,12 @@ const messages = {
     "不支持的上传"
   ],
   "p.8c1e3096f2fd": [
-    "Enter a LAN IPv4 address, optionally with a port",
-    "请输入内网 IPv4 地址，可附加端口"
+    "Enter a device IP address or hostname, optionally with a port",
+    "请输入设备 IP 地址或域名，可附加端口"
   ],
   "p.67be4629a923": [
-    "Enter a valid LAN IPv4 address",
-    "请输入有效的内网 IPv4 地址"
+    "Enter a valid HTTP or HTTPS device address",
+    "请输入有效的 HTTP 或 HTTPS 设备地址"
   ],
   "p.aca4ebdbc19f": [
     "Web management password is missing or incorrect",
@@ -2305,20 +2305,20 @@ const messages = {
     "等待探测"
   ],
   "p.cac654d5880c": [
-    "The device identity does not match this address, or its firmware lacks LAN support",
-    "地址对应的设备身份不匹配或固件不支持内网连接"
+    "The device identity does not match this address, or its HTTP API is unavailable",
+    "设备身份与该地址不匹配，或设备 HTTP 接口不可用"
   ],
   "p.6966db4cb1c5": [
     "Device status validation failed",
     "设备状态校验失败"
   ],
   "p.dc4ace469fac": [
-    "LAN probe timed out",
-    "内网探测超时"
+    "Device connection timed out",
+    "设备连接超时"
   ],
   "p.f09b3b04b23a": [
-    "The browser denied LAN access. You can continue using MQTT.",
-    "浏览器未允许内网访问，可继续使用 MQTT"
+    "The browser denied direct device access. You can continue using MQTT.",
+    "浏览器未允许直接访问设备，可继续使用 MQTT"
   ],
   "p.ec7c88a78b95": [
     "Device connection changed. Try again.",
@@ -2329,16 +2329,16 @@ const messages = {
     "设备连接已变化，请重新读取状态"
   ],
   "p.b1d97389d90c": [
-    "LAN connection interrupted",
-    "内网连接中断"
+    "Device connection interrupted",
+    "设备连接中断"
   ],
   "p.f8277e40c9dd": [
     "No operation receipt confirmed. Read device status before deciding to retry.",
     "操作回执未确认，请读取设备状态后再决定是否重试"
   ],
   "p.6bc40dfa1f9f": [
-    "File upload requires a working LAN connection. Check the address, web password and browser permissions.",
-    "文件上传需要可用的内网连接，请检查地址、网页密码与浏览器权限"
+    "File upload requires a reachable device HTTP endpoint. Check the address, web password and browser permissions.",
+    "文件上传需要可访问的设备 HTTP 接口，请检查地址、网页密码与浏览器权限"
   ],
   "p.404da89a85cb": [
     "Upload result unconfirmed. Read the device update status; uploads are not retried automatically.",
@@ -3132,7 +3132,7 @@ const messages = {
 
 Object.assign(messages,{
  'backup.invalid_path':['Unsupported configuration endpoint','不支持的配置接口'],
- 'backup.lan_required':['Connect directly over LAN with the web password before transferring a full backup.','完整备份需使用网页密码通过内网直连设备。'],
+ 'backup.lan_required':['Connect to the device over HTTP with the web password before transferring a full backup.','完整备份需通过网页密码访问设备 HTTP 接口后传输。'],
  'backup.device_changed':['Device changed; reconnect and retry.','设备已切换，请重新连接后重试。'],
 "hub.setupHelp":["The hub uses the device WebUI password and sign-in session.", "中枢使用设备 WebUI 管理密码和登录会话。"],
 "hub.securityHelp":["Set or change the management password in Device settings. It also protects hub management.", "在设备设置中设置或修改管理密码，该密码同时保护中枢管理页面。"],

@@ -1,15 +1,17 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {createDeviceTransport,localAddress,savePreference,loadPreference} from './deviceConnection.js';
+import {createDeviceTransport,localAddress,connectionAddress,savePreference,loadPreference} from './deviceConnection.js';
 const device={mac:'aabbccddeeff',model:'a1',version:'v2'};
 const response=data=>({ok:true,status:200,json:async()=>data});
 const info={code:'ok',data:{device_id:device.mac,model:'a1',api_version:1}};
 const status={code:'ok',data:{device_id:device.mac,fan_on:true}};
 const legacy=fetcher=>async(url,options)=>url.endsWith('/auth/login')?{ok:false,status:404}:fetcher(url,options);
 function fixture(fetcher){fetcher=legacy(fetcher);const records={},seen=[];const t=createDeviceTransport({fetcher,records,onStatus:(...s)=>seen.push(s)});t.configure('d',device,{mode:'auto',address:'http://192.168.1.10'},'web-pass');return {t,records,seen};}
-test('private addresses and preferences are validated and isolated without credentials',()=>{
- for(const value of ['https://192.168.1.1','192.168.1.1/path','127.0.0.1','8.8.8.8','192.168.1.1:0','http://user:pass@192.168.1.1'])assert.throws(()=>localAddress(value));
+test('device addresses accept public and private networks while rejecting malformed URLs',()=>{
+ for(const value of ['192.168.1.1/path','192.168.1.1:0','http://user:pass@192.168.1.1','ftp://g3.example.com'])assert.throws(()=>localAddress(value));
  assert.equal(localAddress('192.168.1.1:8080'),'http://192.168.1.1:8080');
+ assert.equal(localAddress('127.0.0.1'),'http://127.0.0.1');
+ assert.equal(localAddress('8.8.8.8'),'https://8.8.8.8');
  const values=new Map(),storage={getItem:k=>values.get(k),setItem:(k,v)=>values.set(k,v)};
  savePreference('node/account','d',{mode:'mqtt',address:'192.168.1.10',password:'secret'},storage);
  assert.equal(loadPreference('node/account','d',storage).mode,'mqtt');assert.equal(loadPreference('node/other','d',storage).address,'');assert.ok(![...values.values()].join('').includes('secret'));
@@ -49,7 +51,7 @@ test('signed hub conversion keeps explicit guards and authenticates only when a 
   abort(){this.onabort?.();}
  }
  const daikin={...device,model:'daikin'},records={},t=createDeviceTransport({records,fetcher:legacy(async url=>response(url.endsWith('/info')?{...info,data:{...info.data,model:'daikin',firmware_variant:'full'}}:status))});
- const configure=password=>t.configure('d',daikin,{mode:'auto',address:'http://192.168.1.115'},password);
+ const configure=(password,address='http://192.168.1.115')=>t.configure('d',daikin,{mode:'auto',address},password);
  configure('web-secret');await t.probe('d');
  const file=new Blob(['intact signed envelope']),target={variant:'hub',confirm:'full-to-hub'};
  for(const rescue of [false,true]){
@@ -68,6 +70,107 @@ test('signed hub conversion keeps explicit guards and authenticates only when a 
  assert.equal(requests.at(-1).file,file);assert.equal(requests.at(-1).url,'http://192.168.1.115/api/v1/ota/convert');
  assert.deepEqual(requests.at(-1).headers,{Accept:'application/json','Content-Type':'application/octet-stream','X-IoTCloud-Target-Variant':'hub','X-IoTCloud-Confirm':'full-to-hub'});
  t.configure('d',daikin,{mode:'mqtt',address:'http://192.168.1.115'},'web-secret');assert.equal((await t.upload('d',file,false,()=>{},XHR,target).promise).status,0);
- assert.equal(requests.length,count+1,'MQTT-only conversion cannot send an upload');t.stop();
- const a1=fixture(async url=>response(url.endsWith('/info')?info:status));await a1.t.probe('d');assert.equal((await a1.t.upload('d',file,false,()=>{},XHR,target).promise).status,0);a1.t.stop();assert.equal(requests.length,count+1);
+ assert.equal(requests.length,count+1,'MQTT-only conversion cannot send an upload');
+ configure('web-secret','https://g3.example.com');await t.probe('d');
+ assert.equal((await t.upload('d',file,false,()=>{},XHR,target).promise).status,202);
+ assert.equal(requests.at(-1).url,'https://g3.example.com/api/v1/ota/convert','Full-to-Hub conversion must not be restricted to private IP ranges');
+ t.stop();
+ const beforeRejectedUpload=requests.length;const a1=fixture(async url=>response(url.endsWith('/info')?info:status));await a1.t.probe('d');assert.equal((await a1.t.upload('d',file,false,()=>{},XHR,target).promise).status,0);a1.t.stop();assert.equal(requests.length,beforeRejectedUpload,'a non-Daikin device must not send a conversion request');
+});
+
+test('device addresses accept every network, IP range and address family',()=>{
+ const cases=[
+  ['https://g3.example.com','https://g3.example.com'],
+  ['https://[2001:db8::1]:8443','https://[2001:db8::1]:8443'],
+  ['2001:db8::1','https://[2001:db8::1]'],
+  ['http://100.64.1.2','http://100.64.1.2'],
+  ['100.127.1.2','http://100.127.1.2'],
+  ['http://8.8.8.8','http://8.8.8.8'],
+  ['8.8.8.8','https://8.8.8.8'],
+  ['g3.example.com','https://g3.example.com'],
+  ['192.168.1.20','http://192.168.1.20'],
+  ['10.1.2.3','http://10.1.2.3'],
+  ['172.31.0.1','http://172.31.0.1'],
+  ['127.0.0.1','http://127.0.0.1'],
+  ['device.local','http://device.local'],
+  ['http://203.0.113.10:8080','http://203.0.113.10:8080']
+ ];
+ for(const [value,expected] of cases){
+  assert.equal(connectionAddress(value),expected);
+  assert.equal(localAddress(value),expected);
+  const values=new Map(),storage={getItem:k=>values.get(k),setItem:(k,v)=>values.set(k,v)};
+  savePreference('remote','d',{mode:'auto',address:expected},storage);
+  assert.equal(loadPreference('remote','d',storage).address,expected);
+ }
+ for(const value of ['ftp://g3.example.com','https://user:pass@g3.example.com','https://g3.example.com/path','https://g3.example.com?x=1','https://g3.example.com:0','https://g3.example.com:99999','http://g3.example.com/path'])assert.throws(()=>connectionAddress(value));
+});
+
+test('remote backup and restore use authenticated HTTP without status probe',async()=>{
+ const calls=[],payload=new Uint8Array([1,2,3]);
+ const t=createDeviceTransport({fetcher:legacy(async(url,opts)=>{
+  calls.push([url,opts]);
+  if(url.endsWith('/info'))return response(info);
+  if(url.endsWith('/api/v1/config/backup')||url.endsWith('/api/v1/config/restore'))return {ok:true,status:200,arrayBuffer:async()=>payload.buffer};
+  throw Error('unexpected status probe');
+ })});
+ try{
+  t.configure('d',device,{mode:'auto',address:'https://g3.example.com'},'web-pass');
+  const backup=await t.resource('d','/api/v1/config/backup');
+  assert.deepEqual(new Uint8Array(backup.bytes),payload);
+  await t.resource('d','/api/v1/config/restore',{method:'POST',body:payload});
+  const transfers=calls.filter(([url])=>url.includes('/config/'));
+  assert.equal(transfers.length,2);
+  assert.equal(transfers[0][1].method,'GET');
+  assert.equal(transfers[1][1].method,'POST');
+  assert.equal(transfers[1][1].body,payload);
+  for(const [url,opts] of transfers){assert.ok(url.startsWith('https://g3.example.com/'));assert.match(opts.headers.Authorization,/^Basic /);}
+  await assert.rejects(t.resource('d','/api/v1/config/restore'));
+  t.configure('d',device,{mode:'mqtt',address:'https://g3.example.com'},'web-pass');
+  await assert.rejects(t.resource('d','/api/v1/config/backup'));
+  assert.equal(calls.filter(([url])=>url.includes('/config/')).length,2);
+ }finally{t.stop();}
+});
+
+test('slow discovery survives former two-second probe deadline',async()=>{
+ const {t,records}=fixture(async url=>{
+  if(url.endsWith('/info')){await new Promise(resolve=>setTimeout(resolve,2100));return response(info);}
+  return response(status);
+ });
+ try{assert.equal(await t.probe('d'),true);assert.equal(records.d.ready,true);}
+ finally{t.stop();}
+});
+test('switching endpoint cancels stale discovery',async()=>{
+ const records={};let started,aborted=false;
+ const ready=new Promise(resolve=>{started=resolve;});
+ const t=createDeviceTransport({records,fetcher:legacy(async(url,opts)=>{
+  if(url.startsWith('http://192.168.1.10/')&&url.endsWith('/info')){
+   return new Promise((resolve,reject)=>{
+    const cancel=()=>{aborted=true;reject(new DOMException('aborted','AbortError'));};
+    opts.signal.addEventListener('abort',cancel,{once:true});if(opts.signal.aborted)cancel();started();
+   });
+  }
+  return response(url.endsWith('/info')?info:status);
+ })});
+ try{
+  t.configure('d',device,{mode:'auto',address:'http://192.168.1.10'},'web-pass');
+  const stale=t.probe('d');await ready;
+  t.configure('d',device,{mode:'auto',address:'https://g3.example.com'},'web-pass');
+  assert.equal(await stale,false);assert.equal(aborted,true);
+  assert.equal(await t.probe('d'),true);assert.equal(records.d.address,'https://g3.example.com');
+ }finally{t.stop();}
+});
+test('remote restore rejects wrong identity or password before file transfer',async()=>{
+ for(const wrongIdentity of [true,false]){
+  let transfers=0;
+  const t=createDeviceTransport({fetcher:async(url)=>{
+   if(url.endsWith('/info'))return response(wrongIdentity?{...info,data:{...info.data,device_id:'000000000000'}}:info);
+   if(url.endsWith('/auth/login'))return {ok:false,status:401};
+   transfers++;throw Error('unexpected file transfer');
+  }});
+  try{
+   t.configure('d',device,{mode:'auto',address:'https://g3.example.com'},'web-pass');
+   await assert.rejects(t.resource('d','/api/v1/config/restore',{method:'POST',body:new Uint8Array([1,2,3])}));
+   assert.equal(transfers,0);
+  }finally{t.stop();}
+ }
 });

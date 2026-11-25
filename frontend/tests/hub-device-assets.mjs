@@ -162,3 +162,10 @@ test('cold root and embedded pages work locally with scoped token auth, typed co
   await writeFile(resolve(evidence,'sizes.json'),JSON.stringify({assets:output.assets.size,gzipBytes,rootGzip:gzipSync(output.standalone,{level:9}).length,requests:requests.length},null,2)+'\n');
  }finally{await new Promise(done=>server.close(done));}
 });
+
+
+test('embedded resource bridge allows the full 64 KiB G3 backup while retaining other product limits',async()=>{
+ const source=await readFile(resolve(sourceRoot,'frontend/src/components/DeviceHome.vue'),'utf8');
+ assert.match(source,/hardware_model==='BRY88BBA15G'\?65536:16384/);
+ assert.match(source,/body\?\.byteLength>maxBytes/);
+});

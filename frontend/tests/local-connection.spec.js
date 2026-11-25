@@ -90,7 +90,7 @@ test.afterAll(async()=>{if(server)await new Promise(done=>server.close(done));})
   expect(backends).toEqual([]);expect(errors).toEqual([]);
  });
 
- test('local route rejects public IP before fetching, then connects and clears the form password without navigation',async({page})=>{
+ test('local route accepts a public IP over HTTPS, then connects and clears the form password without navigation',async({page})=>{
   const requests=[];
   await page.route('**/api/**',async route=>{
    const request=route.request();requests.push(request.url());
@@ -102,13 +102,14 @@ test.afterAll(async()=>{if(server)await new Promise(done=>server.close(done));})
   await page.getByRole('button',{name:'本地连接',exact:true}).click();
   await page.getByLabel('设备 IP',{exact:true}).fill('8.8.8.8');
   await page.getByRole('button',{name:'连接本地设备'}).click();
-  await expect(page.getByRole('alert')).toContainText('内网');
-  expect(requests).toEqual([]);
+  await expect(page.getByRole('alert')).toContainText('未能连接设备');
+  expect(requests).toContain('https://8.8.8.8/api/v1/info');
   await page.getByLabel('设备 IP',{exact:true}).fill(address);
   await page.getByLabel('设备网页管理密码',{exact:true}).fill(secret);
   await page.getByRole('button',{name:'连接本地设备'}).click();
   await expect(page.locator('.device-heading')).toContainText('内网已连接');
   await expect(page.getByLabel('设备网页管理密码',{exact:true})).toHaveValue('');
-  await expect(page).toHaveURL(/#\/local$/);
+  await expect(page).toHaveURL(new RegExp('#/local$'));
+  expect(requests).toContain(address+'/api/v1/info');
   expect(await page.evaluate(()=>JSON.stringify({...localStorage,...sessionStorage}))).not.toContain(secret);
  });
