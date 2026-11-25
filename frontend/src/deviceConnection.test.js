@@ -7,9 +7,11 @@ const info={code:'ok',data:{device_id:device.mac,model:'a1',api_version:1}};
 const status={code:'ok',data:{device_id:device.mac,fan_on:true}};
 const legacy=fetcher=>async(url,options)=>url.endsWith('/auth/login')?{ok:false,status:404}:fetcher(url,options);
 function fixture(fetcher){fetcher=legacy(fetcher);const records={},seen=[];const t=createDeviceTransport({fetcher,records,onStatus:(...s)=>seen.push(s)});t.configure('d',device,{mode:'auto',address:'http://192.168.1.10'},'web-pass');return {t,records,seen};}
-test('private addresses and preferences are validated and isolated without credentials',()=>{
- for(const value of ['https://192.168.1.1','192.168.1.1/path','127.0.0.1','8.8.8.8','192.168.1.1:0','http://user:pass@192.168.1.1'])assert.throws(()=>localAddress(value));
+test('device addresses accept public and private networks while rejecting malformed URLs',()=>{
+ for(const value of ['192.168.1.1/path','192.168.1.1:0','http://user:pass@192.168.1.1','ftp://g3.example.com'])assert.throws(()=>localAddress(value));
  assert.equal(localAddress('192.168.1.1:8080'),'http://192.168.1.1:8080');
+ assert.equal(localAddress('127.0.0.1'),'http://127.0.0.1');
+ assert.equal(localAddress('8.8.8.8'),'https://8.8.8.8');
  const values=new Map(),storage={getItem:k=>values.get(k),setItem:(k,v)=>values.set(k,v)};
  savePreference('node/account','d',{mode:'mqtt',address:'192.168.1.10',password:'secret'},storage);
  assert.equal(loadPreference('node/account','d',storage).mode,'mqtt');assert.equal(loadPreference('node/other','d',storage).address,'');assert.ok(![...values.values()].join('').includes('secret'));
