@@ -1670,8 +1670,8 @@ const messages = {
     "填写设备 IP 地址或域名（不限制网络和网段）；需要时可明确填写 http:// 或 https://。"
   ],
   "p.3fd1c5c06889": [
-    "Device address",
-    "设备地址"
+    "Device IP",
+    "设备 IP"
   ],
   "p.42b008274992": [
     "192.168.1.100:80 or https://device.example.com",
