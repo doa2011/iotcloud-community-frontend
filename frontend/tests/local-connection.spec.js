@@ -109,7 +109,7 @@ test.afterAll(async()=>{if(server)await new Promise(done=>server.close(done));})
   await page.getByRole('button',{name:'连接本地设备'}).click();
   await expect(page.locator('.device-heading')).toContainText('内网已连接');
   await expect(page.getByLabel('设备网页管理密码',{exact:true})).toHaveValue('');
-  await expect(page).toHaveURL(/#\\/local$/);
+  await expect(page).toHaveURL(new RegExp('#/local$'));
   expect(requests).toContain(address+'/api/v1/info');
   expect(await page.evaluate(()=>JSON.stringify({...localStorage,...sessionStorage}))).not.toContain(secret);
  });
