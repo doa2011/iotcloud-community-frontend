@@ -3132,7 +3132,7 @@ const messages = {
 
 Object.assign(messages,{
  'backup.invalid_path':['Unsupported configuration endpoint','不支持的配置接口'],
- 'backup.lan_required':['Connect directly over LAN with the web password before transferring a full backup.','完整备份需使用网页密码通过内网直连设备。'],
+ 'backup.lan_required':['Connect to the device over HTTP with the web password before transferring a full backup.','完整备份需通过网页密码访问设备 HTTP 接口后传输。'],
  'backup.device_changed':['Device changed; reconnect and retry.','设备已切换，请重新连接后重试。'],
 "hub.setupHelp":["The hub uses the device WebUI password and sign-in session.", "中枢使用设备 WebUI 管理密码和登录会话。"],
 "hub.securityHelp":["Set or change the management password in Device settings. It also protects hub management.", "在设备设置中设置或修改管理密码，该密码同时保护中枢管理页面。"],
