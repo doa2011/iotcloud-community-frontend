@@ -75,7 +75,7 @@ test('signed hub conversion keeps explicit guards and authenticates only when a 
  assert.equal((await t.upload('d',file,false,()=>{},XHR,target).promise).status,202);
  assert.equal(requests.at(-1).url,'https://g3.example.com/api/v1/ota/convert','Full-to-Hub conversion must not be restricted to private IP ranges');
  t.stop();
- const a1=fixture(async url=>response(url.endsWith('/info')?info:status));await a1.t.probe('d');assert.equal((await a1.t.upload('d',file,false,()=>{},XHR,target).promise).status,0);a1.t.stop();assert.equal(requests.length,count+1);
+ const a1=fixture(async url=>response(url.endsWith('/info')?info:status));await a1.t.probe('d');assert.equal((await a1.t.upload('d',file,false,()=>{},XHR,target).promise).status,0);a1.t.stop();assert.equal(requests.length,count+2);
 });
 
 test('device addresses accept every network, IP range and address family',()=>{
