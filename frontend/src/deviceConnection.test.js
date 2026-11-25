@@ -72,13 +72,28 @@ test('signed hub conversion keeps explicit guards and authenticates only when a 
  const a1=fixture(async url=>response(url.endsWith('/info')?info:status));await a1.t.probe('d');assert.equal((await a1.t.upload('d',file,false,()=>{},XHR,target).promise).status,0);a1.t.stop();assert.equal(requests.length,count+1);
 });
 
-test('remote endpoint preferences preserve strict local conversion guard',()=>{
- for(const value of ['https://g3.example.com','https://[2001:db8::1]:8443','http://100.64.1.2','100.127.1.2']){
-  const address=connectionAddress(value);assert.throws(()=>localAddress(address));
+test('device endpoints accept every IP range and routed host while keeping URL parsing strict',()=>{
+ const cases=[
+  ['https://g3.example.com','https://g3.example.com'],
+  ['https://[2001:db8::1]:8443','https://[2001:db8::1]:8443'],
+  ['http://100.64.1.2','http://100.64.1.2'],
+  ['100.127.1.2','http://100.127.1.2'],
+  ['http://8.8.8.8','http://8.8.8.8'],
+  ['8.8.8.8','https://8.8.8.8'],
+  ['g3.example.com','https://g3.example.com'],
+  ['192.168.1.20','http://192.168.1.20'],
+  ['device.local','http://device.local'],
+  ['http://203.0.113.10:8080','http://203.0.113.10:8080']
+ ];
+ for(const [value,expected] of cases){
+  const address=connectionAddress(value);assert.equal(address,expected);
   const values=new Map(),storage={getItem:k=>values.get(k),setItem:(k,v)=>values.set(k,v)};
   savePreference('remote','d',{mode:'auto',address},storage);assert.equal(loadPreference('remote','d',storage).address,address);
  }
- for(const value of ['http://8.8.8.8','http://100.128.1.2','https://user:pass@g3.example.com','https://g3.example.com/path','https://g3.example.com?x=1','https://g3.example.com:0'])assert.throws(()=>connectionAddress(value));
+ for(const value of ['ftp://g3.example.com','https://user:pass@g3.example.com','https://g3.example.com/path','https://g3.example.com?x=1','https://g3.example.com:0','https://g3.example.com:99999','http://g3.example.com/path'])assert.throws(()=>connectionAddress(value));
+ // The separate Full-to-Hub conversion guard deliberately remains private IPv4 only.
+ assert.equal(localAddress('192.168.1.20'),'http://192.168.1.20');
+ for(const value of ['https://g3.example.com','http://8.8.8.8','https://[2001:db8::1]:8443'])assert.throws(()=>localAddress(value));
 });
 
 test('remote backup and restore use authenticated HTTP without status probe',async()=>{
