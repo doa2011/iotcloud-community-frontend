@@ -16,7 +16,13 @@ function normalizeDeviceAddress(raw){
    // Accept an unbracketed bare IPv6 literal. IPv6 with an explicit port
    // must use the standard [address]:port form to remain unambiguous.
    if(host.includes(':')&&!host.startsWith('[')&&/^[0-9a-f:]+$/i.test(host))host='['+host+']';
-   url=new URL('http://'+host);
+   const unwrapped=host.startsWith('[')?host.slice(1,host.indexOf(']')):host.replace(/:\\d+$/,'');
+   const privateV4=/^(?:10\\.|127\\.|169\\.254\\.|192\\.168\\.|172\\.(?:1[6-9]|2\\d|3[01])\\.|100\\.(?:6[4-9]|[7-9]\\d|1[01]\\d|12[0-7])\\.)/i.test(unwrapped);
+   const localV6=/^(?:::1|fc|fd|fe80)/i.test(unwrapped);
+   const localName=/\\.local$/i.test(unwrapped);
+   // Preserve convenient HTTP for directly attached/private endpoints. All
+   // other bare addresses default to HTTPS; explicit http:// remains allowed.
+   url=new URL((privateV4||localV6||localName?'http://':'https://')+host);
   }
  }catch{throw Error(t('p.8c1e3096f2fd'));}
  if(!['http:','https:'].includes(url.protocol)||!url.hostname||url.username||url.password||
