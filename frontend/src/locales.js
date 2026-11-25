@@ -1690,12 +1690,12 @@ const messages = {
     "正在探测…"
   ],
   "p.8be0e6fe5dcd": [
-    "Connect device directly",
-    "直连设备"
+    "Connect local device",
+    "连接本地设备"
   ],
   "p.66556ccc5e16": [
-    "Open device management without signing in →",
-    "打开设备管理，无需登录 →"
+    "Open local device management without signing in →",
+    "打开本地设备管理，无需登录 →"
   ],
   "p.6ec5731ad8b8": [
     "MQTT settings",
