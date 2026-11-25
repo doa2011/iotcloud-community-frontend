@@ -234,3 +234,15 @@ test('G3 TVOC warmup configuration confirms live and saved values, preserves dra
  w.UI.device.onStatus(state);assert.equal(find('tvocSettings').hidden,true);
  }finally{dom.window.close();}
 });
+
+
+test('backup UI supports routed access and reports the real HTTP failure',()=>{
+ const fs=require('node:fs'),path=require('node:path');
+ const ui=fs.readFileSync(path.join(__dirname,'../common/web/ui.js'),'utf8');
+ const i18n=fs.readFileSync(path.join(__dirname,'../common/web/i18n.js'),'utf8');
+ assert.match(ui,/backupResponseError/);
+ assert.match(ui,/DeviceAuth\.decodeResponse\(response\.clone\(\)\)/);
+ assert.match(ui,/backup\.failed_detail/);
+ assert.doesNotMatch(i18n,/direct LAN connection are required|内网直连/);
+ assert.match(i18n,/LAN, VPN or a routed network/);
+});
