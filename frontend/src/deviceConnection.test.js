@@ -76,7 +76,7 @@ test('device addresses accept every network, IP range and address family',()=>{
  const cases=[
   ['https://g3.example.com','https://g3.example.com'],
   ['https://[2001:db8::1]:8443','https://[2001:db8::1]:8443'],
-  ['2001:db8::1','http://[2001:db8::1]'],
+  ['2001:db8::1','https://[2001:db8::1]'],
   ['http://100.64.1.2','http://100.64.1.2'],
   ['100.127.1.2','http://100.127.1.2'],
   ['http://8.8.8.8','http://8.8.8.8'],
