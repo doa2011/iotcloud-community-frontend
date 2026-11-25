@@ -80,3 +80,29 @@ test('remote endpoint preferences preserve strict local conversion guard',()=>{
  }
  for(const value of ['http://8.8.8.8','http://100.128.1.2','https://user:pass@g3.example.com','https://g3.example.com/path','https://g3.example.com?x=1','https://g3.example.com:0'])assert.throws(()=>connectionAddress(value));
 });
+
+test('remote backup and restore use authenticated HTTP without status probe',async()=>{
+ const calls=[],payload=new Uint8Array([1,2,3]);
+ const t=createDeviceTransport({fetcher:legacy(async(url,opts)=>{
+  calls.push([url,opts]);
+  if(url.endsWith('/info'))return response(info);
+  if(url.endsWith('/api/v1/config/backup')||url.endsWith('/api/v1/config/restore'))return {ok:true,status:200,arrayBuffer:async()=>payload.buffer};
+  throw Error('unexpected status probe');
+ })});
+ try{
+  t.configure('d',device,{mode:'auto',address:'https://g3.example.com'},'web-pass');
+  const backup=await t.resource('d','/api/v1/config/backup');
+  assert.deepEqual(new Uint8Array(backup.bytes),payload);
+  await t.resource('d','/api/v1/config/restore',{method:'POST',body:payload});
+  const transfers=calls.filter(([url])=>url.includes('/config/'));
+  assert.equal(transfers.length,2);
+  assert.equal(transfers[0][1].method,'GET');
+  assert.equal(transfers[1][1].method,'POST');
+  assert.equal(transfers[1][1].body,payload);
+  for(const [url,opts] of transfers){assert.ok(url.startsWith('https://g3.example.com/'));assert.match(opts.headers.Authorization,/^Basic /);}
+  await assert.rejects(t.resource('d','/api/v1/config/restore'));
+  t.configure('d',device,{mode:'mqtt',address:'https://g3.example.com'},'web-pass');
+  await assert.rejects(t.resource('d','/api/v1/config/backup'));
+  assert.equal(calls.filter(([url])=>url.includes('/config/')).length,2);
+ }finally{t.stop();}
+});
