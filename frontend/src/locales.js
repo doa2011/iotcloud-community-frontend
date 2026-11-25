@@ -1670,12 +1670,12 @@ const messages = {
     "填写设备 IP 地址或域名（不限制网络和网段）；需要时可明确填写 http:// 或 https://。"
   ],
   "p.3fd1c5c06889": [
-    "Device IP",
-    "设备 IP"
+    "Device address",
+    "设备地址"
   ],
   "p.42b008274992": [
-    "192.168.1.100 or 192.168.1.100:80",
-    "192.168.1.100 或 192.168.1.100:80"
+    "192.168.1.100:80 or https://device.example.com",
+    "192.168.1.100:80 或 https://device.example.com"
   ],
   "p.f07ec443fcb9": [
     "Device web management password",
@@ -1690,12 +1690,12 @@ const messages = {
     "正在探测…"
   ],
   "p.8be0e6fe5dcd": [
-    "Connect local device",
-    "连接本地设备"
+    "Connect device directly",
+    "直连设备"
   ],
   "p.66556ccc5e16": [
-    "Open local device management without signing in →",
-    "打开本地设备管理，无需登录 →"
+    "Open device management without signing in →",
+    "打开设备管理，无需登录 →"
   ],
   "p.6ec5731ad8b8": [
     "MQTT settings",
@@ -2285,12 +2285,12 @@ const messages = {
     "不支持的上传"
   ],
   "p.8c1e3096f2fd": [
-    "Enter a LAN IPv4 address, optionally with a port",
-    "请输入内网 IPv4 地址，可附加端口"
+    "Enter a device IP address or hostname, optionally with a port",
+    "请输入设备 IP 地址或域名，可附加端口"
   ],
   "p.67be4629a923": [
-    "Enter a valid LAN IPv4 address",
-    "请输入有效的内网 IPv4 地址"
+    "Enter a valid HTTP or HTTPS device address",
+    "请输入有效的 HTTP 或 HTTPS 设备地址"
   ],
   "p.aca4ebdbc19f": [
     "Web management password is missing or incorrect",
@@ -2305,20 +2305,20 @@ const messages = {
     "等待探测"
   ],
   "p.cac654d5880c": [
-    "The device identity does not match this address, or its firmware lacks LAN support",
-    "地址对应的设备身份不匹配或固件不支持内网连接"
+    "The device identity does not match this address, or its HTTP API is unavailable",
+    "设备身份与该地址不匹配，或设备 HTTP 接口不可用"
   ],
   "p.6966db4cb1c5": [
     "Device status validation failed",
     "设备状态校验失败"
   ],
   "p.dc4ace469fac": [
-    "LAN probe timed out",
-    "内网探测超时"
+    "Device connection timed out",
+    "设备连接超时"
   ],
   "p.f09b3b04b23a": [
-    "The browser denied LAN access. You can continue using MQTT.",
-    "浏览器未允许内网访问，可继续使用 MQTT"
+    "The browser denied direct device access. You can continue using MQTT.",
+    "浏览器未允许直接访问设备，可继续使用 MQTT"
   ],
   "p.ec7c88a78b95": [
     "Device connection changed. Try again.",
@@ -2329,16 +2329,16 @@ const messages = {
     "设备连接已变化，请重新读取状态"
   ],
   "p.b1d97389d90c": [
-    "LAN connection interrupted",
-    "内网连接中断"
+    "Device connection interrupted",
+    "设备连接中断"
   ],
   "p.f8277e40c9dd": [
     "No operation receipt confirmed. Read device status before deciding to retry.",
     "操作回执未确认，请读取设备状态后再决定是否重试"
   ],
   "p.6bc40dfa1f9f": [
-    "File upload requires a working LAN connection. Check the address, web password and browser permissions.",
-    "文件上传需要可用的内网连接，请检查地址、网页密码与浏览器权限"
+    "File upload requires a reachable device HTTP endpoint. Check the address, web password and browser permissions.",
+    "文件上传需要可访问的设备 HTTP 接口，请检查地址、网页密码与浏览器权限"
   ],
   "p.404da89a85cb": [
     "Upload result unconfirmed. Read the device update status; uploads are not retried automatically.",
