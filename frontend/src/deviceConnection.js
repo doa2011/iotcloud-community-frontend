@@ -4,32 +4,19 @@ import {t} from './i18n.js';
 import {normalizeMAC} from './deviceProtocol.js';
 import {createDeviceHttpSession} from './deviceHttpSession.js';
 
-export function localAddress(raw){
+function normalizeDeviceAddress(raw){
  if(!raw)return '';
  const value=String(raw).trim();
- if(!/^(?:http:\/\/)?\d{1,3}(?:\.\d{1,3}){3}(?::\d{1,5})?\/?$/.test(value))throw Error(t('p.8c1e3096f2fd'));
- const url=new URL(value.startsWith('http://')?value:'http://'+value),p=url.hostname.split('.').map(Number);
- if(p.length!==4||p.some(n=>n>255)||!(p[0]===10||(p[0]===172&&p[1]>=16&&p[1]<=31)||(p[0]===192&&p[1]===168))||Number(url.port||80)<1||Number(url.port||80)>65535)throw Error(t('p.67be4629a923'));
- return url.origin;
-}
-// Device HTTP endpoints may be on any routed network. Preserve convenient
-// plain HTTP for private IPv4 / VPN / mDNS addresses; default other bare hosts
-// to HTTPS so passwords are not silently sent in cleartext over the Internet.
-// An explicitly entered http:// URL is accepted, but should only be used on a
-// trusted network. The Full-to-Hub conversion path still uses localAddress().
-export function connectionAddress(raw){
- if(!raw)return '';
- const value=String(raw).trim();
- try{return localAddress(value);}catch{}
- const explicit=/^[a-z][a-z0-9+.-]*:\/\//i.test(value);
+ if(!value||/[\\s\\u0000-\\u001f]/.test(value))throw Error(t('p.8c1e3096f2fd'));
  let url;
  try{
-  if(explicit)url=new URL(value);
+  if(/^[a-z][a-z0-9+.-]*:\/\//i.test(value))url=new URL(value);
   else{
-   const bare=value.replace(/\/$/,'');
-   const shared=/^100\.(?:6[4-9]|[7-9]\d|1[01]\d|12[0-7])\.\d{1,3}\.\d{1,3}(?::\d{1,5})?$/i.test(bare);
-   const mdns=/\.local(?::\d{1,5})?$/i.test(bare);
-   url=new URL((shared||mdns?'http://':'https://')+bare);
+   let host=value.replace(/\/$/,'');
+   // Accept an unbracketed bare IPv6 literal. IPv6 with an explicit port
+   // must use the standard [address]:port form to remain unambiguous.
+   if(host.includes(':')&&!host.startsWith('[')&&/^[0-9a-f:]+$/i.test(host))host='['+host+']';
+   url=new URL('http://'+host);
   }
  }catch{throw Error(t('p.8c1e3096f2fd'));}
  if(!['http:','https:'].includes(url.protocol)||!url.hostname||url.username||url.password||
@@ -38,6 +25,10 @@ export function connectionAddress(raw){
  if(!Number.isInteger(port)||port<1||port>65535)throw Error(t('p.8c1e3096f2fd'));
  return url.origin;
 }
+// The device address is user-supplied. Do not impose RFC1918, CGNAT,
+// subnet, private/public, hostname, IPv4 or IPv6 allowlists here.
+export function localAddress(raw){return normalizeDeviceAddress(raw);}
+export function connectionAddress(raw){return normalizeDeviceAddress(raw);}
 const storageKey=(scope,key)=>'phicomm.device-connection.'+encodeURIComponent(scope)+':'+encodeURIComponent(key);
 export function loadPreference(scope,key,storage=localStorage){
  try{const p=JSON.parse(storage.getItem(storageKey(scope,key))||'{}');return {mode:p.mode==='mqtt'?'mqtt':'auto',address:connectionAddress(p.address||''),lastAddress:connectionAddress(p.lastAddress||'')};}catch{return {mode:'auto',address:'',lastAddress:''};}
