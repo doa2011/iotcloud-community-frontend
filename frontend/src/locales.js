@@ -1666,8 +1666,8 @@ const messages = {
     "无需账号 · 无需后端"
   ],
   "p.8cb925b229b0": [
-    "Enter the device's LAN IP to control it and configure Wi-Fi and MQTT. Allow local network access in your browser.",
-    "填写设备内网 IP，即可控制设备、配置 Wi-Fi 和 MQTT。请允许浏览器访问本地网络。"
+    "Enter the device IP address or hostname (any network). Use an explicit http:// or https:// URL when needed.",
+    "填写设备 IP 地址或域名（不限制网络和网段）；需要时可明确填写 http:// 或 https://。"
   ],
   "p.3fd1c5c06889": [
     "Device IP",
