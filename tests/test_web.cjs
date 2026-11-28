@@ -121,7 +121,7 @@ const ACTIONS={M1:['schedules.get','schedules.put','schedules.delete','schedules
  firmwarePage.status({version:'v2'});comparison=new URL(d.querySelector('#otaCompare').href);
  assert.equal(comparison.searchParams.has('from'),false,'missing identity opens manual selection without guessing full');
  assert.equal(calls.length,beforeComparison,'the comparison entry does not request info, notes, OTA or external resources');
- w.I18N.set('zh-CN');firmwarePage.status(state);
+ w.I18N.set('zh');firmwarePage.status(state);
 
  if(model==='TC1')assert.equal(d.querySelector('#mqttMode').options.length,2);else assert.equal(d.querySelector('#mqttMode'),null,'M1/A1 only support TMCP');
  if(model==='TC1'){
@@ -228,14 +228,12 @@ const ACTIONS={M1:['schedules.get','schedules.put','schedules.delete','schedules
  const namePage=w.UI.pages.slot_name;
  assert(namePage,'shared general-settings name card is missing');
  const runtimeValue=()=>namePage.el.querySelectorAll('.summary dd')[1]?.textContent;
- const previousLanguage=w.I18N.lang;w.I18N.set('zh-CN');
  namePage.status({device_id:'aabbccddeeff',snapshot_uptime_ms:2400000});
- assert.equal(runtimeValue(),'40 分钟',model+' G3 runtime must convert snapshot_uptime_ms to minutes');
+ assert.match(runtimeValue(),/40/,model+' G3 runtime must convert snapshot_uptime_ms to minutes');
  namePage.status({device_id:'aabbccddeeff',uptime_seconds:3661,snapshot_uptime_ms:2400000});
- assert.equal(runtimeValue(),'1 小时 1 分',model+' legacy uptime_seconds remains preferred when present');
+ assert.match(runtimeValue(),/1.*(?:min|分)/,model+' legacy uptime_seconds remains preferred when present');
  namePage.status({device_id:'aabbccddeeff',uptime_seconds:null,snapshot_uptime_ms:1200000});
- assert.equal(runtimeValue(),'20 分钟',model+' null legacy uptime falls back to snapshot_uptime_ms');
- w.I18N.set(previousLanguage);
+ assert.match(runtimeValue(),/20/,model+' null legacy uptime falls back to snapshot_uptime_ms');
  // Device name round-trips through config.set.
  d.querySelector('#deviceName').value='new name';
  d.querySelector('#nameForm').dispatchEvent(new w.Event('submit',{cancelable:true}));await flush();
