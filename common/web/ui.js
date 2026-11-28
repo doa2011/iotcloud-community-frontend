@@ -107,6 +107,13 @@ function daysText(mask){
 }
 const hhmm=m=>String(Math.floor(m/60)%24).padStart(2,'0')+':'+String(m%60).padStart(2,'0');
 const toMinutes=v=>{const [a,b]=v.split(':').map(Number);return a*60+b;};
+function uptimeSeconds(s){
+ const seconds=s?.uptime_seconds;
+ if(seconds!==null&&seconds!==undefined&&seconds!==''&&Number.isFinite(Number(seconds))&&Number(seconds)>=0)return Number(seconds);
+ const milliseconds=s?.snapshot_uptime_ms;
+ if(milliseconds!==null&&milliseconds!==undefined&&milliseconds!==''&&Number.isFinite(Number(milliseconds))&&Number(milliseconds)>=0)return Number(milliseconds)/1000;
+ return null;
+}
 function duration(sec){const d=Math.floor(sec/86400),hr=Math.floor(sec%86400/3600),m=Math.floor(sec%3600/60);return d?t('time.dh',{d,h:hr}):hr?t('time.hm',{h:hr,m}):t('time.m',{m});}
 function summary(items){return h('dl',{class:'summary'},items.filter(Boolean).map(([k,v,dot])=>h('div',{},h('dt',{i18n:k}),h('dd',{},dot?h('span',{class:'dot '+dot}):null,v))));}
 function card(titleKey,leadKey,...body){return h('section',{class:'card'},h('div',{class:'card-head'},h('div',{},h('h2',{i18n:titleKey}),leadKey&&h('p',{class:'help',i18n:leadKey}))),...body);}
@@ -672,7 +679,7 @@ function maintenancePage(dev){
   reset=h('button',{type:'button',class:'btn danger'},h('span',{i18n:'sys.reset'}));
   reset.onclick=async()=>{
    if(resetPending||!await confirmDialog({title:t('sys.reset_q'),body:t(UI.caps?.config_recovery?'recovery.confirm':'sys.reset_body'),ok:t('sys.reset'),danger:true})||resetPending)return;
-   resetPending=true;resetAccepted=false;resetGeneration++;resetUptime=UI.confirmed?.uptime_seconds;resetSawPending=false;
+   resetPending=true;resetAccepted=false;resetGeneration++;resetUptime=uptimeSeconds(UI.confirmed);resetSawPending=false;
    await run(reset,async()=>{
     try{const result=await api('/device/reset',{full:true});resetAccepted=true;resetGeneration++;return result;}
     catch(e){resetPending=false;throw e;}
@@ -696,7 +703,7 @@ function nameCard(){
  const language=h('select',{id:'deviceLanguage'},h('option',{value:'zh-CN'},'简体中文'),h('option',{value:'en'},'English'));
  const languageForm=h('form',{class:'stack',hidden:!UI.caps?.device_language},fieldRow('gen.language',language),info('gen.language_help'),h('button',{class:'btn',type:'submit'},h('span',{i18n:'common.save'})));
  onSubmit(languageForm,()=>command('config.set',{section:'device',values:{language:language.value}}));
- return {el:card('gen.identity',null,form,languageForm),init(s){input.value=s.name||'';language.value=s.language||'zh-CN';},status(s){meta.replaceChildren(summary([['gen.device_id',h('span',{class:'num'},prettyMac(s.device_id))],['gen.uptime',duration(s.uptime_seconds||0)]]));}};
+ return {el:card('gen.identity',null,form,languageForm),init(s){input.value=s.name||'';language.value=s.language||'zh-CN';},status(s){meta.replaceChildren(summary([['gen.device_id',h('span',{class:'num'},prettyMac(s.device_id))],['gen.uptime',duration(uptimeSeconds(s)??0)]]));}};
 }
 function authCard(){
  const input=h('input',{id:'webPassword',type:'password',maxLength:32,autocomplete:'new-password',placeholder:t('auth.ph')});
@@ -760,7 +767,7 @@ async function load(priority){
    }
    if(resetPending&&raw.reboot_pending)resetSawPending=true;
    if(wasRecovery&&!UI.caps.config_recovery&&!raw.reboot_pending)initialized=false;
-   const restarted=resetSawPending||(Number.isFinite(resetUptime)&&raw.uptime_seconds<resetUptime);
+   const restarted=resetSawPending||(Number.isFinite(resetUptime)&&uptimeSeconds(raw)!==null&&uptimeSeconds(raw)<resetUptime);
    if(resetAccepted&&!raw.reboot_pending&&(!UI.caps.config_recovery||restarted)){
     resetPending=resetAccepted=false;
     if(!UI.caps.config_recovery)initialized=false;
