@@ -228,7 +228,7 @@ const ACTIONS={M1:['schedules.get','schedules.put','schedules.delete','schedules
  const namePage=w.UI.pages.slot_name;
  assert(namePage,'shared general-settings name card is missing');
  const runtimeValue=()=>namePage.el.querySelectorAll('.summary dd')[1]?.textContent;
- const previousLanguage=w.I18N.lang;w.I18N.set('zh');
+ const previousLanguage=w.I18N.lang;w.I18N.set('zh-CN');
  namePage.status({device_id:'aabbccddeeff',snapshot_uptime_ms:2400000});
  assert.equal(runtimeValue(),'40 分钟',model+' G3 runtime must convert snapshot_uptime_ms to minutes');
  namePage.status({device_id:'aabbccddeeff',uptime_seconds:3661,snapshot_uptime_ms:2400000});
