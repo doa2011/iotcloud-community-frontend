@@ -121,7 +121,7 @@ const ACTIONS={M1:['schedules.get','schedules.put','schedules.delete','schedules
  firmwarePage.status({version:'v2'});comparison=new URL(d.querySelector('#otaCompare').href);
  assert.equal(comparison.searchParams.has('from'),false,'missing identity opens manual selection without guessing full');
  assert.equal(calls.length,beforeComparison,'the comparison entry does not request info, notes, OTA or external resources');
- w.I18N.set('zh');firmwarePage.status(state);
+ w.I18N.set('zh-CN');firmwarePage.status(state);
 
  if(model==='TC1')assert.equal(d.querySelector('#mqttMode').options.length,2);else assert.equal(d.querySelector('#mqttMode'),null,'M1/A1 only support TMCP');
  if(model==='TC1'){
