@@ -224,6 +224,18 @@ const ACTIONS={M1:['schedules.get','schedules.put','schedules.delete','schedules
  assert.equal(generalLink.getAttribute('aria-current'),'page');
  assert(d.querySelector('[data-settings-page="device"] #deviceName'));
  assert(d.querySelector('[data-settings-page="device"] #webPassword'));
+ // G3 reports snapshot_uptime_ms, while older device firmware reports uptime_seconds.
+ const namePage=w.UI.pages.slot_name;
+ assert(namePage,'shared general-settings name card is missing');
+ const runtimeValue=()=>namePage.el.querySelectorAll('.summary dd')[1]?.textContent;
+ const previousLanguage=w.I18N.lang;w.I18N.set('zh');
+ namePage.status({device_id:'aabbccddeeff',snapshot_uptime_ms:2400000});
+ assert.equal(runtimeValue(),'40 分钟',model+' G3 runtime must convert snapshot_uptime_ms to minutes');
+ namePage.status({device_id:'aabbccddeeff',uptime_seconds:3661,snapshot_uptime_ms:2400000});
+ assert.equal(runtimeValue(),'1 小时 1 分',model+' legacy uptime_seconds remains preferred when present');
+ namePage.status({device_id:'aabbccddeeff',uptime_seconds:null,snapshot_uptime_ms:1200000});
+ assert.equal(runtimeValue(),'20 分钟',model+' null legacy uptime falls back to snapshot_uptime_ms');
+ w.I18N.set(previousLanguage);
  // Device name round-trips through config.set.
  d.querySelector('#deviceName').value='new name';
  d.querySelector('#nameForm').dispatchEvent(new w.Event('submit',{cancelable:true}));await flush();
